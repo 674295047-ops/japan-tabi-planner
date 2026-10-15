@@ -1,7 +1,7 @@
 import React from 'react';
-import { X, Star, Clock, JapaneseYen, ExternalLink, Plus, Heart, Sparkles, Navigation } from 'lucide-react';
+import { X, Star, ExternalLink, Plus, Heart, Lock, Clock, JapaneseYen, Navigation as NavigationIcon, Sparkles } from 'lucide-react';
 import type { Destination } from '../types';
-
+import { useAuth } from '../context/AuthContext';
 
 interface DestinationModalProps {
   destination: Destination | null;
@@ -18,6 +18,7 @@ export const DestinationModal: React.FC<DestinationModalProps> = ({
   onToggleWishlist,
   onAddToItinerary,
 }) => {
+  const { isAuthenticated } = useAuth();
   if (!destination) return null;
 
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${destination.coordinates.lat},${destination.coordinates.lng}`;
@@ -103,7 +104,7 @@ export const DestinationModal: React.FC<DestinationModalProps> = ({
             </div>
 
             <div className="flex items-start gap-3 sm:col-span-2">
-              <Navigation className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+              <NavigationIcon className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
               <div>
                 <div className="text-xs font-semibold text-slate-900">สถานีและการเดินทาง</div>
                 <div className="text-xs text-slate-600">{destination.nearestStation}</div>
@@ -137,21 +138,49 @@ export const DestinationModal: React.FC<DestinationModalProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onToggleWishlist(destination)}
-                className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-1.5 text-xs font-semibold"
+                className={`p-2.5 rounded-xl border transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                  !isAuthenticated
+                    ? 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                }`}
+                title={!isAuthenticated ? 'กรุณาเข้าสู่ระบบเพื่อบันทึกลงรายการโปรด' : isWishlisted ? 'ลบออกจากรายการโปรด' : 'บันทึกลงรายการโปรด'}
               >
-                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
-                <span>{isWishlisted ? 'บันทึกแล้ว' : 'บันทึก'}</span>
+                {!isAuthenticated ? (
+                  <>
+                    <Lock className="w-4 h-4 text-slate-400" />
+                    <span>บันทึก (ต้องล็อกอิน)</span>
+                  </>
+                ) : (
+                  <>
+                    <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
+                    <span>{isWishlisted ? 'บันทึกแล้ว' : 'บันทึก'}</span>
+                  </>
+                )}
               </button>
 
               <button
                 onClick={() => {
                   onAddToItinerary(destination);
-                  onClose();
+                  if (isAuthenticated) onClose();
                 }}
-                className="py-2.5 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                  !isAuthenticated
+                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200'
+                    : 'bg-rose-500 hover:bg-rose-600 text-white'
+                }`}
+                title={!isAuthenticated ? 'กรุณาเข้าสู่ระบบก่อนเพิ่มลงในแผนทริป' : 'เพิ่มลงในแผนทริป'}
               >
-                <Plus className="w-4 h-4" />
-                <span>เพิ่มลงในแผนทริป</span>
+                {!isAuthenticated ? (
+                  <>
+                    <Lock className="w-4 h-4 text-slate-500" />
+                    <span>เพิ่มลงในแผนทริป</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    <span>เพิ่มลงในแผนทริป</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

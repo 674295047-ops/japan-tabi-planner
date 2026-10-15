@@ -58,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('planner')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all relative ${
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all relative ${
                 activeTab === 'planner'
                   ? 'bg-rose-50 text-rose-600 font-semibold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -66,27 +66,39 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <CalendarDays className="w-4 h-4" />
               <span>แผนทริป</span>
-              {itineraryTotalItems > 0 && (
-                <span className="bg-rose-500 text-white text-[11px] font-bold px-1.5 py-0.2 rounded-full min-w-5 text-center">
-                  {itineraryTotalItems}
+              {!isAuthenticated ? (
+                <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5">
+                  🔒
                 </span>
+              ) : (
+                itineraryTotalItems > 0 && (
+                  <span className="bg-rose-500 text-white text-[11px] font-bold px-1.5 py-0.2 rounded-full min-w-5 text-center">
+                    {itineraryTotalItems}
+                  </span>
+                )
               )}
             </button>
 
             <button
               onClick={() => setActiveTab('wishlist')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all relative ${
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all relative ${
                 activeTab === 'wishlist'
                   ? 'bg-rose-50 text-rose-600 font-semibold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              <Heart className={`w-4 h-4 ${wishlistCount > 0 ? 'text-rose-500 fill-rose-500' : ''}`} />
+              <Heart className={`w-4 h-4 ${wishlistCount > 0 && isAuthenticated ? 'text-rose-500 fill-rose-500' : ''}`} />
               <span className="hidden sm:inline">รายการโปรด</span>
-              {wishlistCount > 0 && (
-                <span className="bg-rose-100 text-rose-700 text-[11px] font-bold px-1.5 py-0.2 rounded-full">
-                  {wishlistCount}
+              {!isAuthenticated ? (
+                <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5">
+                  🔒
                 </span>
+              ) : (
+                wishlistCount > 0 && (
+                  <span className="bg-rose-100 text-rose-700 text-[11px] font-bold px-1.5 py-0.2 rounded-full">
+                    {wishlistCount}
+                  </span>
+                )
               )}
             </button>
 

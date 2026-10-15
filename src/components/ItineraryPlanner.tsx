@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { 
   Calendar, Clock, Trash2, ArrowUp, ArrowDown, AlertTriangle, 
-  Printer, Plus, CheckCircle2, Copy 
+  Printer, Plus, CheckCircle2, Copy, Lock, LogIn 
 } from 'lucide-react';
 import type { ItineraryDay, ItineraryItem } from '../types';
-
+import { useAuth } from '../context/AuthContext';
 
 interface ItineraryPlannerProps {
   days: ItineraryDay[];
@@ -12,6 +12,7 @@ interface ItineraryPlannerProps {
   items: ItineraryItem[];
   setItems: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
   onOpenDiscover: () => void;
+  onOpenLoginModal?: () => void;
 }
 
 export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
@@ -20,7 +21,9 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
   items,
   setItems,
   onOpenDiscover,
+  onOpenLoginModal,
 }) => {
+  const { isAuthenticated } = useAuth();
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -137,6 +140,37 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="py-16 text-center bg-white rounded-3xl border border-slate-200/90 p-8 shadow-sm max-w-xl mx-auto">
+        <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h3 className="font-extrabold text-slate-900 text-lg sm:text-xl">
+          กรุณาเข้าสู่ระบบเพื่อใช้งานแผนทริป
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed">
+          เข้าสู่ระบบหรือสมัครสมาชิกเพื่อสร้างแผนการท่องเที่ยว จัดลำดับเวลา และคำนวณงบประมาณการเดินทางของคุณ
+        </p>
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={onOpenLoginModal}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <LogIn className="w-4 h-4 text-rose-400" />
+            <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
+          </button>
+          <button
+            onClick={onOpenDiscover}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+          >
+            ค้นหาสถานที่ท่องเที่ยวก่อน
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

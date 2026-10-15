@@ -9,6 +9,7 @@ import { WishlistTab } from './components/WishlistTab';
 import { AdminConsole } from './components/AdminConsole';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { useDestinations } from './context/DestinationContext';
+import { useAuth } from './context/AuthContext';
 import type { Category, Destination, ItineraryDay, ItineraryItem, Region, Season } from './types';
 import { Compass, Sparkles } from 'lucide-react';
 
@@ -99,8 +100,16 @@ export function App() {
     }
   }, [items]);
 
+  const { isAuthenticated } = useAuth();
+
   // Wishlist toggler
   const handleToggleWishlist = (dest: Destination) => {
+    if (!isAuthenticated) {
+      showToast('🔒 กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อนบันทึกรายการโปรด');
+      setIsLoginModalOpen(true);
+      return;
+    }
+
     setWishlist((prev) => {
       const exists = prev.some((d) => d.id === dest.id);
       if (exists) {
@@ -115,6 +124,12 @@ export function App() {
 
   // Add to itinerary (default to current day 1 or next empty slot)
   const handleAddToItinerary = (dest: Destination) => {
+    if (!isAuthenticated) {
+      showToast('🔒 กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อนจัดแผนทริป');
+      setIsLoginModalOpen(true);
+      return;
+    }
+
     const targetDay = 1;
     const existingInDay = items.filter((it) => it.dayNumber === targetDay);
     const nextOrder = existingInDay.length;
@@ -276,6 +291,7 @@ export function App() {
             items={items}
             setItems={setItems}
             onOpenDiscover={() => setActiveTab('discover')}
+            onOpenLoginModal={() => setIsLoginModalOpen(true)}
           />
         )}
 
@@ -287,6 +303,7 @@ export function App() {
             onAddToItinerary={handleAddToItinerary}
             onViewDetails={setSelectedDestination}
             onOpenDiscover={() => setActiveTab('discover')}
+            onOpenLoginModal={() => setIsLoginModalOpen(true)}
           />
         )}
 

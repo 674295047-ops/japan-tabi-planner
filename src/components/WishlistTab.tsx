@@ -1,7 +1,7 @@
 import React from 'react';
-import { Heart, Plus, Trash2 } from 'lucide-react';
+import { Heart, Plus, Trash2, Lock, LogIn } from 'lucide-react';
 import type { Destination } from '../types';
-
+import { useAuth } from '../context/AuthContext';
 
 interface WishlistTabProps {
   wishlist: Destination[];
@@ -9,6 +9,7 @@ interface WishlistTabProps {
   onAddToItinerary: (dest: Destination) => void;
   onViewDetails: (dest: Destination) => void;
   onOpenDiscover: () => void;
+  onOpenLoginModal?: () => void;
 }
 
 export const WishlistTab: React.FC<WishlistTabProps> = ({
@@ -17,7 +18,41 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
   onAddToItinerary,
   onViewDetails,
   onOpenDiscover,
+  onOpenLoginModal,
 }) => {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return (
+      <div className="py-16 text-center bg-white rounded-3xl border border-slate-200/90 p-8 shadow-sm max-w-xl mx-auto">
+        <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h3 className="font-extrabold text-slate-900 text-lg sm:text-xl">
+          กรุณาเข้าสู่ระบบเพื่อใช้งานรายการโปรด
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed">
+          เข้าสู่ระบบหรือสมัครสมาชิกเพื่อบันทึกสถานที่ท่องเที่ยวที่คุณชื่นชอบ และเข้าถึงข้อมูลได้จากทุกอุปกรณ์
+        </p>
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={onOpenLoginModal}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <LogIn className="w-4 h-4 text-rose-400" />
+            <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
+          </button>
+          <button
+            onClick={onOpenDiscover}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+          >
+            สำรวจสถานที่ท่องเที่ยวก่อน
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm flex items-center justify-between">
