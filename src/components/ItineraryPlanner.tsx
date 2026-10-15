@@ -1,0 +1,361 @@
+import React, { useState } from 'react';
+import { 
+  Calendar, Clock, Trash2, ArrowUp, ArrowDown, AlertTriangle, 
+  Printer, Plus, CheckCircle2, Copy 
+} from 'lucide-react';
+import type { ItineraryDay, ItineraryItem } from '../types';
+
+
+interface ItineraryPlannerProps {
+  days: ItineraryDay[];
+  setDays: React.Dispatch<React.SetStateAction<ItineraryDay[]>>;
+  items: ItineraryItem[];
+  setItems: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
+  onOpenDiscover: () => void;
+}
+
+export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
+  days,
+  setDays,
+  items,
+  setItems,
+  onOpenDiscover,
+}) => {
+  const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // Filter items for currently selected day
+  const currentDayItems = items
+    .filter((it) => it.dayNumber === selectedDayNumber)
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+
+  // Add a new day
+  const handleAddDay = () => {
+    const nextDayNum = days.length + 1;
+    setDays((prev) => [
+      ...prev,
+      {
+        dayNumber: nextDayNum,
+        dateStr: `วันที่ ${nextDayNum}`,
+        title: `แผนเที่ยว วันที่ ${nextDayNum}`,
+      },
+    ]);
+    setSelectedDayNumber(nextDayNum);
+  };
+
+  // Remove a day
+  const handleRemoveDay = (dayNum: number) => {
+    if (days.length <= 1) return;
+    setDays((prev) => prev.filter((d) => d.dayNumber !== dayNum));
+    setItems((prev) => prev.filter((it) => it.dayNumber !== dayNum));
+    if (selectedDayNumber === dayNum) {
+      setSelectedDayNumber(1);
+    }
+  };
+
+  // Move item up
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    const targetItem = currentDayItems[index];
+    const prevItem = currentDayItems[index - 1];
+
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id === targetItem.id) return { ...it, orderIndex: prevItem.orderIndex };
+        if (it.id === prevItem.id) return { ...it, orderIndex: targetItem.orderIndex };
+        return it;
+      })
+    );
+  };
+
+  // Move item down
+  const handleMoveDown = (index: number) => {
+    if (index === currentDayItems.length - 1) return;
+    const targetItem = currentDayItems[index];
+    const nextItem = currentDayItems[index + 1];
+
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id === targetItem.id) return { ...it, orderIndex: nextItem.orderIndex };
+        if (it.id === nextItem.id) return { ...it, orderIndex: targetItem.orderIndex };
+        return it;
+      })
+    );
+  };
+
+  // Delete item from itinerary
+  const handleDeleteItem = (itemId: string) => {
+    setItems((prev) => prev.filter((it) => it.id !== itemId));
+  };
+
+  // Update item planned time or note
+  const handleUpdateItemTime = (itemId: string, time: string) => {
+    setItems((prev) =>
+      prev.map((it) => (it.id === itemId ? { ...it, plannedTime: time } : it))
+    );
+  };
+
+  const handleUpdateItemNotes = (itemId: string, note: string) => {
+    setItems((prev) =>
+      prev.map((it) => (it.id === itemId ? { ...it, notes: note } : it))
+    );
+  };
+
+  // Calculate totals
+  const totalAdmissionFee = items.reduce(
+    (sum, it) => sum + (it.destination.admissionFeeYen || 0),
+    0
+  );
+
+  // Copy plan summary to clipboard
+  const handleCopySummary = () => {
+    let summaryText = `🇯🇵 แผนการท่องเที่ยวประเทศญี่ปุ่น (Japan Itinerary)\n`;
+    summaryText += `══════════════════════════════════════════\n\n`;
+
+    days.forEach((day) => {
+      summaryText += `📌 ${day.title}\n`;
+      const dayItems = items
+        .filter((it) => it.dayNumber === day.dayNumber)
+        .sort((a, b) => a.orderIndex - b.orderIndex);
+
+      if (dayItems.length === 0) {
+        summaryText += `  (ยังไม่มีสถานที่ในวันนี้)\n`;
+      } else {
+        dayItems.forEach((it, idx) => {
+          summaryText += `  ${idx + 1}. [${it.plannedTime || '--:--'}] ${it.destination.nameTh} (${it.destination.prefecture})\n`;
+          summaryText += `     • ค่าเข้า: ¥${it.destination.admissionFeeYen.toLocaleString()} | สถานี: ${it.destination.nearestStation}\n`;
+          if (it.notes) summaryText += `     • บันทึก: ${it.notes}\n`;
+        });
+      }
+      summaryText += `\n`;
+    });
+
+    summaryText += `💰 ค่าเข้าชมรวมทั้งทริป: ¥${totalAdmissionFee.toLocaleString()} ต่อท่าน\n`;
+    summaryText += `สร้างโดยระบบ Japan Tabi Planner`;
+
+    navigator.clipboard.writeText(summaryText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Header & Metrics Banner */}
+      <div className="bg-gradient-to-r from-rose-500 to-red-600 rounded-3xl p-6 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <span className="bg-white/20 backdrop-blur-md text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              Smart Itinerary Builder
+            </span>
+            <h2 className="text-xl sm:text-2xl font-extrabold mt-2">แผนการเดินทางท่องเที่ยวญี่ปุ่น</h2>
+            <p className="text-xs sm:text-sm text-rose-100 mt-1">
+              จัดลำดับสถานที่รายวัน ตรวจสอบเวลาเปิดปิดอัตโนมัติ และคำนวณงบประมาณ
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopySummary}
+              className="px-4 py-2 rounded-xl bg-white text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+              <span>{copied ? 'คัดลอกสำเร็จ!' : 'คัดลอกสรุปแผน'}</span>
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <Printer className="w-4 h-4" />
+              <span>พิมพ์</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Stats Bar */}
+        <div className="grid grid-cols-3 gap-3 mt-6 pt-5 border-t border-white/20 text-center">
+          <div className="bg-white/10 rounded-2xl p-2.5">
+            <div className="text-[11px] text-rose-100 font-medium">จำนวนวันในทริป</div>
+            <div className="text-lg sm:text-xl font-bold">{days.length} วัน</div>
+          </div>
+          <div className="bg-white/10 rounded-2xl p-2.5">
+            <div className="text-[11px] text-rose-100 font-medium">สถานที่ทั้งหมด</div>
+            <div className="text-lg sm:text-xl font-bold">{items.length} จุดแวะ</div>
+          </div>
+          <div className="bg-white/10 rounded-2xl p-2.5">
+            <div className="text-[11px] text-rose-100 font-medium">ค่าเข้าชมรวม</div>
+            <div className="text-lg sm:text-xl font-bold">¥{totalAdmissionFee.toLocaleString()}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Day Selector Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        {days.map((day) => (
+          <button
+            key={day.dayNumber}
+            onClick={() => setSelectedDayNumber(day.dayNumber)}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+              selectedDayNumber === day.dayNumber
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <span>{day.title}</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                selectedDayNumber === day.dayNumber ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {items.filter((it) => it.dayNumber === day.dayNumber).length}
+            </span>
+          </button>
+        ))}
+
+        <button
+          onClick={handleAddDay}
+          className="px-3.5 py-2.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-rose-400 text-slate-500 hover:text-rose-600 text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>เพิ่มวัน</span>
+        </button>
+      </div>
+
+      {/* Main Itinerary Content Area */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-rose-500" />
+            <h3 className="font-bold text-slate-900 text-base sm:text-lg">
+              ตารางเวลา: วันที่ {selectedDayNumber} ({currentDayItems.length} จุดแวะ)
+            </h3>
+          </div>
+
+          {days.length > 1 && (
+            <button
+              onClick={() => handleRemoveDay(selectedDayNumber)}
+              className="text-xs text-red-500 hover:text-red-700 font-semibold transition-colors flex items-center gap-1"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>ลบวันนี้</span>
+            </button>
+          )}
+        </div>
+
+        {/* Empty State */}
+        {currentDayItems.length === 0 ? (
+          <div className="py-12 text-center rounded-2xl border-2 border-dashed border-slate-200 p-6">
+            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="font-bold text-slate-700 text-sm">ยังไม่มีสถานที่ในวันที่ {selectedDayNumber}</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              เลือกดูสถานที่ท่องเที่ยวที่น่าสนใจจากหน้าค้นหา แล้วกด "ใส่ในทริป" เพื่อนำมาจัดลงตาราง
+            </p>
+            <button
+              onClick={onOpenDiscover}
+              className="mt-4 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-all shadow-xs"
+            >
+              ค้นหาสถานที่ท่องเที่ยว
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {currentDayItems.map((item, index) => {
+              const dest = item.destination;
+              // Check for operating hour conflict warning
+              const hasClosedWarning = dest.operatingHours.closedDays.length > 0;
+
+              return (
+                <div
+                  key={item.id}
+                  className="group relative bg-slate-50/70 hover:bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 hover:border-slate-300 hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  {/* Left: Index & Time & Thumbnail */}
+                  <div className="flex items-start gap-3 w-full sm:w-auto">
+                    {/* Index Number */}
+                    <div className="w-7 h-7 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-1">
+                      {index + 1}
+                    </div>
+
+                    {/* Image */}
+                    <img
+                      src={dest.imageUrl}
+                      alt={dest.nameTh}
+                      className="w-16 h-16 rounded-xl object-cover shrink-0 shadow-xs"
+                    />
+
+                    {/* Info */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-slate-900">{dest.nameTh}</span>
+                        <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2 py-0.2 rounded-md">
+                          {dest.prefecture}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate max-w-xs">{dest.nameEn}</p>
+
+                      <div className="flex items-center gap-3 text-xs text-slate-500 pt-1">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{dest.operatingHours.openTime} - {dest.operatingHours.closeTime}</span>
+                        </span>
+                        <span className="font-semibold text-slate-700">
+                          {dest.admissionFeeYen === 0 ? 'ฟรี' : `¥${dest.admissionFeeYen.toLocaleString()}`}
+                        </span>
+                      </div>
+
+                      {/* Conflict Alert Warning Badge */}
+                      {hasClosedWarning && (
+                        <div className="inline-flex items-center gap-1.5 text-[11px] text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-lg font-medium mt-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>{dest.operatingHours.closedNote || 'มีกำหนดวันปิดทำการประจำสัปดาห์'}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right: Planned Time, Notes, and Ordering Actions */}
+                  <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={item.plannedTime || '09:00'}
+                        onChange={(e) => handleUpdateItemTime(item.id, e.target.value)}
+                        className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                        title="เวลาที่วางแผนจะไปถึง"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleMoveUp(index)}
+                        disabled={index === 0}
+                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors"
+                        title="เลื่อนขึ้น"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleMoveDown(index)}
+                        disabled={index === currentDayItems.length - 1}
+                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors"
+                        title="เลื่อนลง"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteItem(item.id)}
+                        className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors ml-1"
+                        title="ลบออกจากทริป"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
