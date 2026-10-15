@@ -3,7 +3,7 @@ import {
   Crown, ShieldCheck, Users, MapPin, Megaphone, Activity,
   Search, Trash2, PinOff, Pin, ChevronDown, ChevronUp,
   BarChart3, UserCheck, UserX, PlusCircle, X,
-  AlertTriangle, CheckCircle2, Clock, RotateCcw,
+  AlertTriangle, CheckCircle2, Clock, RotateCcw, Edit3,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDestinations } from '../context/DestinationContext';
@@ -24,6 +24,7 @@ export const AdminConsole: React.FC = () => {
   const {
     destinations,
     addDestination,
+    updateDestination,
     deleteDestination,
     resetDestinations,
   } = useDestinations();
@@ -44,9 +45,10 @@ export const AdminConsole: React.FC = () => {
   // Destination CRUD State
   const [destSearch, setDestSearch] = useState('');
   const [showAddDest, setShowAddDest] = useState(false);
+  const [editingDestinationId, setEditingDestinationId] = useState<string | null>(null);
   const [confirmDeleteDestId, setConfirmDeleteDestId] = useState<string | null>(null);
 
-  // Add Destination Form Fields
+  // Destination Form Fields
   const [destNameTh, setDestNameTh] = useState('');
   const [destNameEn, setDestNameEn] = useState('');
   const [destNameJa, setDestNameJa] = useState('');
@@ -62,6 +64,116 @@ export const AdminConsole: React.FC = () => {
   const [destDescription, setDestDescription] = useState('');
   const [destTips, setDestTips] = useState('');
   const [destSeasons, setDestSeasons] = useState<Season[]>(['spring', 'autumn']);
+
+  // Reset Form
+  const resetDestForm = () => {
+    setEditingDestinationId(null);
+    setDestNameTh('');
+    setDestNameEn('');
+    setDestNameJa('');
+    setDestRegion('Kanto');
+    setDestPrefecture('');
+    setDestCategory('temple');
+    setDestImageUrl('');
+    setDestFee(0);
+    setDestStation('');
+    setDestOpenTime('09:00');
+    setDestCloseTime('17:00');
+    setDestClosedNote('เปิดทุกวัน');
+    setDestDescription('');
+    setDestTips('');
+    setDestSeasons(['spring', 'autumn']);
+    setShowAddDest(false);
+  };
+
+  // Open Edit Form
+  const handleStartEditDestination = (dest: Destination) => {
+    setEditingDestinationId(dest.id);
+    setDestNameTh(dest.nameTh);
+    setDestNameEn(dest.nameEn);
+    setDestNameJa(dest.nameJa);
+    setDestRegion(dest.region);
+    setDestPrefecture(dest.prefecture);
+    setDestCategory(dest.category);
+    setDestImageUrl(dest.imageUrl);
+    setDestFee(dest.admissionFeeYen);
+    setDestStation(dest.nearestStation);
+    setDestOpenTime(dest.operatingHours.openTime || '09:00');
+    setDestCloseTime(dest.operatingHours.closeTime || '17:00');
+    setDestClosedNote(dest.operatingHours.closedNote || 'เปิดทุกวัน');
+    setDestDescription(dest.descriptionTh);
+    setDestTips(dest.tipsTh || '');
+    setDestSeasons(dest.recommendedSeasons || ['spring', 'autumn']);
+    setShowAddDest(true);
+    // Scroll to form smoothly
+    window.scrollTo({ top: 350, behavior: 'smooth' });
+  };
+
+  // Save (Add or Update) Destination
+  const handleSaveDestination = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!destNameTh.trim() || !destPrefecture.trim()) return;
+
+    if (editingDestinationId) {
+      // Update existing destination
+      updateDestination(editingDestinationId, {
+        nameTh: destNameTh.trim(),
+        nameEn: destNameEn.trim() || destNameTh.trim(),
+        nameJa: destNameJa.trim() || destNameTh.trim(),
+        region: destRegion,
+        prefecture: destPrefecture.trim(),
+        category: destCategory,
+        descriptionTh: destDescription.trim() || 'สถานที่ท่องเที่ยวอันงดงามในประเทศญี่ปุ่น',
+        imageUrl: destImageUrl.trim() || 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80',
+        admissionFeeYen: Number(destFee) || 0,
+        nearestStation: destStation.trim() || 'สถานีหลักประจำเมือง',
+        recommendedSeasons: destSeasons.length > 0 ? destSeasons : ['spring', 'autumn', 'summer', 'winter'],
+        operatingHours: {
+          openTime: destOpenTime || '09:00',
+          closeTime: destCloseTime || '17:00',
+          closedDays: [],
+          closedNote: destClosedNote || 'เปิดทุกวัน',
+        },
+        tipsTh: destTips.trim() || 'แนะนำให้วางแผนการเดินทางล่วงหน้าและใช้ขนส่งสาธารณะ',
+      });
+      resetDestForm();
+    } else {
+      // Add new destination
+      const newDest: Destination = {
+        id: `dest-${Date.now()}`,
+        nameTh: destNameTh.trim(),
+        nameEn: destNameEn.trim() || destNameTh.trim(),
+        nameJa: destNameJa.trim() || destNameTh.trim(),
+        region: destRegion,
+        prefecture: destPrefecture.trim(),
+        category: destCategory,
+        descriptionTh: destDescription.trim() || 'สถานที่ท่องเที่ยวอันงดงามในประเทศญี่ปุ่น',
+        imageUrl: destImageUrl.trim() || 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80',
+        rating: 5.0,
+        reviewsCount: 1,
+        admissionFeeYen: Number(destFee) || 0,
+        nearestStation: destStation.trim() || 'สถานีหลักประจำเมือง',
+        recommendedSeasons: destSeasons.length > 0 ? destSeasons : ['spring', 'autumn', 'summer', 'winter'],
+        operatingHours: {
+          openTime: destOpenTime || '09:00',
+          closeTime: destCloseTime || '17:00',
+          closedDays: [],
+          closedNote: destClosedNote || 'เปิดทุกวัน',
+        },
+        coordinates: { lat: 35.6762, lng: 139.6503 },
+        tipsTh: destTips.trim() || 'แนะนำให้วางแผนการเดินทางล่วงหน้าและใช้ขนส่งสาธารณะ',
+      };
+
+      addDestination(newDest);
+      resetDestForm();
+    }
+  };
+
+  const toggleSeasonSelect = (s: Season) => {
+    setDestSeasons(prev =>
+      prev.includes(s) ? prev.filter(item => item !== s) : [...prev, s]
+    );
+  };
 
   // ─── Dashboard Metrics ─────────────────────────────────────
   const totalUsers = accounts.length;
@@ -87,54 +199,6 @@ export const AdminConsole: React.FC = () => {
     if (!annTitle.trim() || !annContent.trim()) return;
     addAnnouncement(annTitle.trim(), annContent.trim(), annPinned);
     setAnnTitle(''); setAnnContent(''); setAnnPinned(false); setShowAnnForm(false);
-  };
-
-  const handleAddDestination = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!destNameTh.trim() || !destPrefecture.trim()) return;
-
-    const newDest: Destination = {
-      id: `dest-${Date.now()}`,
-      nameTh: destNameTh.trim(),
-      nameEn: destNameEn.trim() || destNameTh.trim(),
-      nameJa: destNameJa.trim() || destNameTh.trim(),
-      region: destRegion,
-      prefecture: destPrefecture.trim(),
-      category: destCategory,
-      descriptionTh: destDescription.trim() || 'สถานที่ท่องเที่ยวอันงดงามในประเทศญี่ปุ่น',
-      imageUrl: destImageUrl.trim() || 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80',
-      rating: 5.0,
-      reviewsCount: 1,
-      admissionFeeYen: Number(destFee) || 0,
-      nearestStation: destStation.trim() || 'สถานีหลักประจำเมือง',
-      recommendedSeasons: destSeasons.length > 0 ? destSeasons : ['spring', 'autumn', 'summer', 'winter'],
-      operatingHours: {
-        openTime: destOpenTime || '09:00',
-        closeTime: destCloseTime || '17:00',
-        closedDays: [],
-        closedNote: destClosedNote || 'เปิดทุกวัน',
-      },
-      coordinates: { lat: 35.6762, lng: 139.6503 },
-      tipsTh: destTips.trim() || 'แนะนำให้วางแผนการเดินทางล่วงหน้าและใช้ขนส่งสาธารณะ',
-    };
-
-    addDestination(newDest);
-    setShowAddDest(false);
-    // Reset inputs
-    setDestNameTh('');
-    setDestNameEn('');
-    setDestNameJa('');
-    setDestPrefecture('');
-    setDestImageUrl('');
-    setDestStation('');
-    setDestDescription('');
-    setDestTips('');
-  };
-
-  const toggleSeasonSelect = (s: Season) => {
-    setDestSeasons(prev =>
-      prev.includes(s) ? prev.filter(item => item !== s) : [...prev, s]
-    );
   };
 
   const roleBadge = (role: UserRole, status: UserStatus) => {
@@ -401,11 +465,17 @@ export const AdminConsole: React.FC = () => {
 
               {/* Add Destination Button (Admin & Super Admin) */}
               <button
-                onClick={() => setShowAddDest(!showAddDest)}
+                onClick={() => {
+                  if (showAddDest) {
+                    resetDestForm();
+                  } else {
+                    setShowAddDest(true);
+                  }
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
               >
                 {showAddDest ? <X className="w-3.5 h-3.5" /> : <PlusCircle className="w-3.5 h-3.5" />}
-                <span>{showAddDest ? 'ยกเลิก' : 'เพิ่มสถานที่ใหม่'}</span>
+                <span>{showAddDest ? 'ปิดฟอร์ม' : 'เพิ่มสถานที่ใหม่'}</span>
               </button>
 
               {/* Reset to Default Data Button (Super Admin Only) */}
@@ -426,15 +496,24 @@ export const AdminConsole: React.FC = () => {
             </div>
           </div>
 
-          {/* Add Destination Form */}
+          {/* Add / Edit Destination Form */}
           {showAddDest && (
-            <form onSubmit={handleAddDestination} className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5 animate-in fade-in duration-150">
+            <form onSubmit={handleSaveDestination} className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5 animate-in fade-in duration-150">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <PlusCircle className="w-4 h-4 text-rose-500" />
-                  เพิ่มสถานที่ท่องเที่ยวใหม่
+                  {editingDestinationId ? (
+                    <>
+                      <Edit3 className="w-4 h-4 text-indigo-600" />
+                      <span>แก้ไขข้อมูลสถานที่ท่องเที่ยว</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle className="w-4 h-4 text-rose-500" />
+                      <span>เพิ่มสถานที่ท่องเที่ยวใหม่</span>
+                    </>
+                  )}
                 </h4>
-                <button type="button" onClick={() => setShowAddDest(false)} className="text-slate-400 hover:text-slate-600">
+                <button type="button" onClick={resetDestForm} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -616,16 +695,26 @@ export const AdminConsole: React.FC = () => {
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setShowAddDest(false)}
+                  onClick={resetDestForm}
                   className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
                 >
-                  บันทึกสถานที่
+                  {editingDestinationId ? (
+                    <>
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>อัปเดตข้อมูลสถานที่</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>บันทึกสถานที่</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -641,7 +730,7 @@ export const AdminConsole: React.FC = () => {
                   <th className="py-3 px-3">เวลาทำการ</th>
                   <th className="py-3 px-3">ค่าเข้าชม</th>
                   <th className="py-3 px-3">สถานะ</th>
-                  {isSuper && <th className="py-3 px-3 text-right">การจัดการ</th>}
+                  <th className="py-3 px-3 text-right">การจัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -675,39 +764,51 @@ export const AdminConsole: React.FC = () => {
                           ? <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-semibold"><AlertTriangle className="w-3 h-3" /> มีวันปิด</span>
                           : <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-semibold"><CheckCircle2 className="w-3 h-3" /> เปิดทุกวัน</span>}
                       </td>
-                      {/* Super Admin Delete Action */}
-                      {isSuper && (
-                        <td className="py-2.5 px-3 text-right">
-                          {confirmDeleteDestId === dest.id ? (
-                            <div className="flex items-center justify-end gap-1">
-                              <span className="text-[10px] text-red-600 font-semibold">ลบ?</span>
+                      {/* Action Column for Admin and Super Admin */}
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Edit button: available for Admin & Super Admin */}
+                          <button
+                            onClick={() => handleStartEditDestination(dest)}
+                            className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 transition-colors cursor-pointer"
+                            title="แก้ไขข้อมูลสถานที่"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Delete button: Super Admin only */}
+                          {isSuper && (
+                            confirmDeleteDestId === dest.id ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-[10px] text-red-600 font-semibold">ลบ?</span>
+                                <button
+                                  onClick={() => {
+                                    deleteDestination(dest.id);
+                                    setConfirmDeleteDestId(null);
+                                  }}
+                                  className="px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-bold cursor-pointer"
+                                >
+                                  ยืนยัน
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteDestId(null)}
+                                  className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold cursor-pointer"
+                                >
+                                  ยกเลิก
+                                </button>
+                              </div>
+                            ) : (
                               <button
-                                onClick={() => {
-                                  deleteDestination(dest.id);
-                                  setConfirmDeleteDestId(null);
-                                }}
-                                className="px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-bold cursor-pointer"
+                                onClick={() => setConfirmDeleteDestId(dest.id)}
+                                className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors cursor-pointer"
+                                title="ลบสถานที่"
                               >
-                                ยืนยัน
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
-                              <button
-                                onClick={() => setConfirmDeleteDestId(null)}
-                                className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold cursor-pointer"
-                              >
-                                ยกเลิก
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setConfirmDeleteDestId(dest.id)}
-                              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors cursor-pointer"
-                              title="ลบสถานที่"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            )
                           )}
-                        </td>
-                      )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
