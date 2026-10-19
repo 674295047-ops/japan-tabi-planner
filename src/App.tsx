@@ -8,6 +8,7 @@ import { ItineraryPlanner } from './components/ItineraryPlanner';
 import { WishlistTab } from './components/WishlistTab';
 import { AdminConsole } from './components/AdminConsole';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
+import { AIChatbot } from './components/AIChatbot';
 import { useDestinations } from './context/DestinationContext';
 import { useAuth } from './context/AuthContext';
 import type { Category, Destination, ItineraryDay, ItineraryItem, Region, Season } from './types';
@@ -327,6 +328,17 @@ export function App() {
       <AuthModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
+      />
+
+      {/* AI Travel Assistant Chatbot */}
+      <AIChatbot
+        destinations={destinations}
+        onSelectDestination={setSelectedDestination}
+        onAddToItinerary={handleAddToItinerary}
+        onToggleWishlist={handleToggleWishlist}
+        wishlist={wishlist}
+        isAuthenticated={isAuthenticated}
+        onOpenLoginModal={() => setIsLoginModalOpen(true)}
       />
 
 
