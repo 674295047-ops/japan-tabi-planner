@@ -29,6 +29,10 @@ export const DestinationCard: React.FC<DestinationCardProps> = ({
           alt={destination.nameTh}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
+          onError={(e) => {
+            const target = e.currentTarget;
+            target.src = 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80';
+          }}
         />
         
         {/* Region & Prefecture Badge */}

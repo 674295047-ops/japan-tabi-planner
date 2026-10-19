@@ -26,45 +26,66 @@ export function App() {
   const [selectedSeason, setSelectedSeason] = useState<Season | 'All'>('All');
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
 
-  // Wishlist state (persisted in localStorage)
+  const { user, isAuthenticated } = useAuth();
+  const userId = user?.id || 'guest';
+
+  // Helper to load user-specific storage
+  const getWishlistKey = (uid: string) => `japan_wishlist_${uid}`;
+  const getDaysKey = (uid: string) => `japan_itinerary_days_${uid}`;
+  const getItemsKey = (uid: string) => `japan_itinerary_items_${uid}`;
+
+  // Default itinerary template
+  const defaultDays: ItineraryDay[] = [
+    { dayNumber: 1, dateStr: 'วันที่ 1', title: 'Day 1: จุดไฮไลท์และวัฒนธรรม' },
+    { dayNumber: 2, dateStr: 'วันที่ 2', title: 'Day 2: ชมธรรมชาติและประวัติศาสตร์' },
+    { dayNumber: 3, dateStr: 'วันที่ 3', title: 'Day 3: ช้อปปิ้งและอาหารเลิศรส' },
+  ];
+
+  // Wishlist state (persisted per user in localStorage)
   const [wishlist, setWishlist] = useState<Destination[]>(() => {
     try {
-      const saved = localStorage.getItem('japan_wishlist');
+      const saved = localStorage.getItem(getWishlistKey(userId)) || localStorage.getItem('japan_wishlist');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
 
-  // Itinerary days state (persisted in localStorage)
+  // Itinerary days state (persisted per user in localStorage)
   const [days, setDays] = useState<ItineraryDay[]>(() => {
     try {
-      const saved = localStorage.getItem('japan_itinerary_days');
-      return saved
-        ? JSON.parse(saved)
-        : [
-            { dayNumber: 1, dateStr: 'วันที่ 1', title: 'Day 1: จุดไฮไลท์และวัฒนธรรม' },
-            { dayNumber: 2, dateStr: 'วันที่ 2', title: 'Day 2: ชมธรรมชาติและประวัติศาสตร์' },
-            { dayNumber: 3, dateStr: 'วันที่ 3', title: 'Day 3: ช้อปปิ้งและอาหารเลิศรส' },
-          ];
+      const saved = localStorage.getItem(getDaysKey(userId)) || localStorage.getItem('japan_itinerary_days');
+      return saved ? JSON.parse(saved) : defaultDays;
     } catch {
-      return [
-        { dayNumber: 1, dateStr: 'วันที่ 1', title: 'Day 1: จุดไฮไลท์และวัฒนธรรม' },
-        { dayNumber: 2, dateStr: 'วันที่ 2', title: 'Day 2: ชมธรรมชาติและประวัติศาสตร์' },
-        { dayNumber: 3, dateStr: 'วันที่ 3', title: 'Day 3: ช้อปปิ้งและอาหารเลิศรส' },
-      ];
+      return defaultDays;
     }
   });
 
-  // Itinerary items state (persisted in localStorage)
+  // Itinerary items state (persisted per user in localStorage)
   const [items, setItems] = useState<ItineraryItem[]>(() => {
     try {
-      const saved = localStorage.getItem('japan_itinerary_items');
+      const saved = localStorage.getItem(getItemsKey(userId)) || localStorage.getItem('japan_itinerary_items');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
+
+  // Switch user data when user logs in or out
+  useEffect(() => {
+    try {
+      const savedWishlist = localStorage.getItem(getWishlistKey(userId));
+      setWishlist(savedWishlist ? JSON.parse(savedWishlist) : []);
+
+      const savedDays = localStorage.getItem(getDaysKey(userId));
+      setDays(savedDays ? JSON.parse(savedDays) : defaultDays);
+
+      const savedItems = localStorage.getItem(getItemsKey(userId));
+      setItems(savedItems ? JSON.parse(savedItems) : []);
+    } catch (e) {
+      console.error('Failed to sync user itinerary/wishlist data', e);
+    }
+  }, [userId]);
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -76,32 +97,30 @@ export function App() {
     }, 2500);
   };
 
-  // Sync to localStorage
+  // Sync to user-isolated localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('japan_wishlist', JSON.stringify(wishlist));
+      localStorage.setItem(getWishlistKey(userId), JSON.stringify(wishlist));
     } catch (e) {
       console.error(e);
     }
-  }, [wishlist]);
+  }, [wishlist, userId]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('japan_itinerary_days', JSON.stringify(days));
+      localStorage.setItem(getDaysKey(userId), JSON.stringify(days));
     } catch (e) {
       console.error(e);
     }
-  }, [days]);
+  }, [days, userId]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('japan_itinerary_items', JSON.stringify(items));
+      localStorage.setItem(getItemsKey(userId), JSON.stringify(items));
     } catch (e) {
       console.error(e);
     }
-  }, [items]);
-
-  const { isAuthenticated } = useAuth();
+  }, [items, userId]);
 
   // Wishlist toggler
   const handleToggleWishlist = (dest: Destination) => {

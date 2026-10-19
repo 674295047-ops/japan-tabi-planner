@@ -35,6 +35,10 @@ export const DestinationModal: React.FC<DestinationModalProps> = ({
             src={destination.imageUrl}
             alt={destination.nameTh}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.src = 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80';
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
           

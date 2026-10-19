@@ -46,13 +46,38 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
     setSelectedDayNumber(nextDayNum);
   };
 
-  // Remove a day
+  // Remove a day and re-index sequentially
   const handleRemoveDay = (dayNum: number) => {
     if (days.length <= 1) return;
-    setDays((prev) => prev.filter((d) => d.dayNumber !== dayNum));
-    setItems((prev) => prev.filter((it) => it.dayNumber !== dayNum));
-    if (selectedDayNumber === dayNum) {
-      setSelectedDayNumber(1);
+
+    // Filter out the day and items
+    const remainingDays = days.filter((d) => d.dayNumber !== dayNum);
+    const remainingItems = items.filter((it) => it.dayNumber !== dayNum);
+
+    // Re-index days 1, 2, 3...
+    const dayMap = new Map<number, number>();
+    const reindexedDays: ItineraryDay[] = remainingDays.map((d, idx) => {
+      const newDayNum = idx + 1;
+      dayMap.set(d.dayNumber, newDayNum);
+      return {
+        ...d,
+        dayNumber: newDayNum,
+        dateStr: `วันที่ ${newDayNum}`,
+        title: d.title.replace(/Day \d+/, `Day ${newDayNum}`).replace(/วันที่ \d+/, `วันที่ ${newDayNum}`),
+      };
+    });
+
+    // Re-index dayNumber on items
+    const reindexedItems = remainingItems.map((it) => ({
+      ...it,
+      dayNumber: dayMap.get(it.dayNumber) || 1,
+    }));
+
+    setDays(reindexedDays);
+    setItems(reindexedItems);
+
+    if (selectedDayNumber === dayNum || selectedDayNumber > reindexedDays.length) {
+      setSelectedDayNumber(Math.min(selectedDayNumber, reindexedDays.length));
     }
   };
 

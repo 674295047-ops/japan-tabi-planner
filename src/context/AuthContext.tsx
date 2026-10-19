@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         {
           id: 'ann-001',
           title: '🇯🇵 ยินดีต้อนรับสู่ระบบ Japan Tabi Planner!',
-          content: 'เปิดให้บริการระบบวางแผนท่องเที่ยวญี่ปุ่น Phase 1 แล้ว รองรับ 14 สถานที่ยอดนิยมทั่ว 8 ภูมิภาค',
+          content: 'เปิดให้บริการระบบวางแผนท่องเที่ยวญี่ปุ่น Phase 1 แล้ว รองรับ 22 สถานที่ยอดนิยมทั่วทั้ง 9 ภูมิภาค พร้อมผู้ช่วย AI Chatbot วางแผนเที่ยว',
           authorEmail: 'muhammadrokibchemat@gmail.com',
           authorName: 'Muhammad Rokib',
           createdAt: new Date().toISOString(),
