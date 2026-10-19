@@ -19,15 +19,31 @@ export const DestinationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [destinations, setDestinations] = useState<Destination[]>(() => {
     try {
       const saved = localStorage.getItem('japan_destinations');
-      if (saved) {
+      const version = localStorage.getItem('japan_destinations_version');
+      if (saved && version === 'v2') {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed;
+        }
+      } else if (saved) {
+        // Upgrade from older version: update default destinations images while keeping custom added items
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const defaultMap = new Map(JAPAN_DESTINATIONS.map((d) => [d.id, d]));
+          const upgraded = parsed.map((item) => {
+            if (defaultMap.has(item.id)) {
+              return { ...item, imageUrl: defaultMap.get(item.id)!.imageUrl };
+            }
+            return item;
+          });
+          localStorage.setItem('japan_destinations_version', 'v2');
+          return upgraded;
         }
       }
     } catch (e) {
       console.error('Failed to load destinations from localStorage', e);
     }
+    localStorage.setItem('japan_destinations_version', 'v2');
     return JAPAN_DESTINATIONS;
   });
 
