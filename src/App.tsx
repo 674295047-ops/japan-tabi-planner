@@ -9,6 +9,7 @@ import { WishlistTab } from './components/WishlistTab';
 import { AdminConsole } from './components/AdminConsole';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { AIChatbot } from './components/AIChatbot';
+import { AddToItineraryModal } from './components/AddToItineraryModal';
 import { useDestinations } from './context/DestinationContext';
 import { useAuth } from './context/AuthContext';
 import type { Category, Destination, ItineraryDay, ItineraryItem, Region, Season } from './types';
@@ -142,15 +143,21 @@ export function App() {
     });
   };
 
-  // Add to itinerary (default to current day 1 or next empty slot)
+  // Add-to-itinerary modal state
+  const [itineraryModalDestination, setItineraryModalDestination] = useState<Destination | null>(null);
+
+  // Add to itinerary (opens Day & Time selection modal)
   const handleAddToItinerary = (dest: Destination) => {
     if (!isAuthenticated) {
       showToast('🔒 กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อนจัดแผนทริป');
       setIsLoginModalOpen(true);
       return;
     }
+    setItineraryModalDestination(dest);
+  };
 
-    const targetDay = 1;
+  // Confirm adding to itinerary with chosen day & time
+  const handleConfirmAddToItinerary = (dest: Destination, targetDay: number, plannedTime: string) => {
     const existingInDay = items.filter((it) => it.dayNumber === targetDay);
     const nextOrder = existingInDay.length;
 
@@ -159,11 +166,25 @@ export function App() {
       destination: dest,
       dayNumber: targetDay,
       orderIndex: nextOrder,
-      plannedTime: nextOrder === 0 ? '09:00' : '13:00',
+      plannedTime: plannedTime || '09:00',
     };
 
     setItems((prev) => [...prev, newItem]);
-    showToast(`เพิ่ม "${dest.nameTh}" ลงใน Day ${targetDay} แล้ว!`);
+    showToast(`เพิ่ม "${dest.nameTh}" ลงใน Day ${targetDay} (${plannedTime}) แล้ว! 🎉`);
+  };
+
+  // Helper to add new day from modal
+  const handleAddNewDayFromModal = (): number => {
+    const nextDayNum = days.length + 1;
+    setDays((prev) => [
+      ...prev,
+      {
+        dayNumber: nextDayNum,
+        dateStr: `วันที่ ${nextDayNum}`,
+        title: `Day ${nextDayNum}: แผนเที่ยววันที่ ${nextDayNum}`,
+      },
+    ]);
+    return nextDayNum;
   };
 
   // Filter destinations
@@ -347,6 +368,17 @@ export function App() {
       <AuthModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
+      />
+
+      {/* Modal for Add To Itinerary (Select Day & Time) */}
+      <AddToItineraryModal
+        isOpen={!!itineraryModalDestination}
+        onClose={() => setItineraryModalDestination(null)}
+        destination={itineraryModalDestination}
+        days={days}
+        items={items}
+        onConfirmAdd={handleConfirmAddToItinerary}
+        onAddNewDay={handleAddNewDayFromModal}
       />
 
       {/* AI Travel Assistant Chatbot */}

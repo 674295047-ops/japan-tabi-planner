@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Calendar, Clock, Trash2, ArrowUp, ArrowDown, AlertTriangle, 
-  Printer, Plus, CheckCircle2, Copy, Lock, LogIn 
+  Printer, Plus, CheckCircle2, Copy, Lock, LogIn, Edit2, Check, ArrowRightLeft, StickyNote, X
 } from 'lucide-react';
 import type { ItineraryDay, ItineraryItem } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -26,11 +26,15 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
   const { isAuthenticated } = useAuth();
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
   const [copied, setCopied] = useState<boolean>(false);
+  const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
+  const [editTitleText, setEditTitleText] = useState<string>('');
 
   // Filter items for currently selected day
   const currentDayItems = items
     .filter((it) => it.dayNumber === selectedDayNumber)
     .sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const currentDayObj = days.find((d) => d.dayNumber === selectedDayNumber);
 
   // Add a new day
   const handleAddDay = () => {
@@ -40,7 +44,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
       {
         dayNumber: nextDayNum,
         dateStr: `วันที่ ${nextDayNum}`,
-        title: `แผนเที่ยว วันที่ ${nextDayNum}`,
+        title: `Day ${nextDayNum}: แผนเที่ยววันที่ ${nextDayNum}`,
       },
     ]);
     setSelectedDayNumber(nextDayNum);
@@ -111,6 +115,25 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
     );
   };
 
+  // Move item to another day
+  const handleMoveItemToDay = (itemId: string, targetDay: number) => {
+    if (targetDay === selectedDayNumber) return;
+    const targetDayItems = items.filter((it) => it.dayNumber === targetDay);
+    const newOrderIndex = targetDayItems.length;
+
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === itemId
+          ? {
+              ...it,
+              dayNumber: targetDay,
+              orderIndex: newOrderIndex,
+            }
+          : it
+      )
+    );
+  };
+
   // Delete item from itinerary
   const handleDeleteItem = (itemId: string) => {
     setItems((prev) => prev.filter((it) => it.id !== itemId));
@@ -127,6 +150,22 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
     setItems((prev) =>
       prev.map((it) => (it.id === itemId ? { ...it, notes: note } : it))
     );
+  };
+
+  // Save edited day title
+  const handleSaveDayTitle = () => {
+    if (!editTitleText.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    setDays((prev) =>
+      prev.map((d) =>
+        d.dayNumber === selectedDayNumber
+          ? { ...d, title: editTitleText.trim() }
+          : d
+      )
+    );
+    setIsEditingTitle(false);
   };
 
   // Calculate totals
@@ -281,18 +320,62 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
 
       {/* Main Itinerary Content Area */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-rose-500" />
-            <h3 className="font-bold text-slate-900 text-base sm:text-lg">
-              ตารางเวลา: วันที่ {selectedDayNumber} ({currentDayItems.length} จุดแวะ)
-            </h3>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+            <Calendar className="w-5 h-5 text-rose-500 shrink-0" />
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <input
+                  type="text"
+                  value={editTitleText}
+                  onChange={(e) => setEditTitleText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveDayTitle();
+                    if (e.key === 'Escape') setIsEditingTitle(false);
+                  }}
+                  autoFocus
+                  placeholder="เช่น Day 1: ช้อปปิ้งและวัดอาซากุสะ"
+                  className="py-1 px-3 rounded-xl border border-rose-400 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                />
+                <button
+                  onClick={handleSaveDayTitle}
+                  className="p-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors cursor-pointer"
+                  title="บันทึกชื่อวัน"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditingTitle(false)}
+                  className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
+                  title="ยกเลิก"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-slate-900 text-base sm:text-lg">
+                  {currentDayObj?.title || `วันที่ ${selectedDayNumber}`}
+                </h3>
+                <button
+                  onClick={() => {
+                    setEditTitleText(currentDayObj?.title || `Day ${selectedDayNumber}: แผนเที่ยววันที่ ${selectedDayNumber}`);
+                    setIsEditingTitle(true);
+                  }}
+                  className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                  title="แก้ไขชื่อหัวข้อวัน"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs text-slate-400 font-medium">({currentDayItems.length} จุดแวะ)</span>
+              </div>
+            )}
           </div>
 
           {days.length > 1 && (
             <button
               onClick={() => handleRemoveDay(selectedDayNumber)}
-              className="text-xs text-red-500 hover:text-red-700 font-semibold transition-colors flex items-center gap-1"
+              className="text-xs text-red-500 hover:text-red-700 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>ลบวันนี้</span>
@@ -371,23 +454,45 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
                     </div>
                   </div>
 
-                  {/* Right: Planned Time, Notes, and Ordering Actions */}
-                  <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0">
-                    <div className="flex items-center gap-2">
+                  {/* Right: Planned Time, Notes, Move-To-Day, and Ordering Actions */}
+                  <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0">
+                    {/* Time Input */}
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
                       <input
                         type="time"
                         value={item.plannedTime || '09:00'}
                         onChange={(e) => handleUpdateItemTime(item.id, e.target.value)}
-                        className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                        className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-rose-500 cursor-pointer"
                         title="เวลาที่วางแผนจะไปถึง"
                       />
                     </div>
 
+                    {/* Move to another Day selector */}
+                    {days.length > 1 && (
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                        <ArrowRightLeft className="w-3 h-3 text-slate-400" />
+                        <select
+                          value={selectedDayNumber}
+                          onChange={(e) => handleMoveItemToDay(item.id, Number(e.target.value))}
+                          className="text-[11px] font-bold text-slate-700 bg-transparent focus:outline-none cursor-pointer"
+                          title="ย้ายสถานที่นี้ไปวันอื่น"
+                        >
+                          {days.map((d) => (
+                            <option key={d.dayNumber} value={d.dayNumber}>
+                              {d.dayNumber === selectedDayNumber ? `อยู่ที่ Day ${d.dayNumber}` : `ย้ายไป Day ${d.dayNumber}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Order & Delete */}
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleMoveUp(index)}
                         disabled={index === 0}
-                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors"
+                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors cursor-pointer"
                         title="เลื่อนขึ้น"
                       >
                         <ArrowUp className="w-3.5 h-3.5" />
@@ -395,14 +500,14 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
                       <button
                         onClick={() => handleMoveDown(index)}
                         disabled={index === currentDayItems.length - 1}
-                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors"
+                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors cursor-pointer"
                         title="เลื่อนลง"
                       >
                         <ArrowDown className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors ml-1"
+                        className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors ml-1 cursor-pointer"
                         title="ลบออกจากทริป"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
