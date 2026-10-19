@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { ItineraryDay, ItineraryItem } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { ConfirmModal } from './ConfirmModal';
 
 interface ItineraryPlannerProps {
   days: ItineraryDay[];
@@ -28,6 +29,10 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const [editTitleText, setEditTitleText] = useState<string>('');
+
+  // Confirmation state for deleting a day or an item
+  const [dayToDelete, setDayToDelete] = useState<number | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; nameTh: string } | null>(null);
 
   // Filter items for currently selected day
   const currentDayItems = items
@@ -374,7 +379,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
 
           {days.length > 1 && (
             <button
-              onClick={() => handleRemoveDay(selectedDayNumber)}
+              onClick={() => setDayToDelete(selectedDayNumber)}
               className="text-xs text-red-500 hover:text-red-700 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -506,7 +511,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
                         <ArrowDown className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDeleteItem(item.id)}
+                        onClick={() => setItemToDelete({ id: item.id, nameTh: dest.nameTh })}
                         className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors ml-1 cursor-pointer"
                         title="ลบออกจากทริป"
                       >
@@ -520,6 +525,38 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal for Deleting a Day */}
+      <ConfirmModal
+        isOpen={dayToDelete !== null}
+        title={`ลบแผนเที่ยว Day ${dayToDelete}?`}
+        message={`คุณแน่ใจหรือไม่ว่าต้องการลบ "Day ${dayToDelete}"? รายการสถานที่ท่องเที่ยวทั้งหมดในวันนี้จะถูกลบออก และลำดับวันจะถูกจัดเรียงใหม่`}
+        confirmLabel="ยืนยันการลบวัน"
+        cancelLabel="ยกเลิก"
+        onConfirm={() => {
+          if (dayToDelete !== null) {
+            handleRemoveDay(dayToDelete);
+            setDayToDelete(null);
+          }
+        }}
+        onCancel={() => setDayToDelete(null)}
+      />
+
+      {/* Confirmation Modal for Deleting an Item */}
+      <ConfirmModal
+        isOpen={itemToDelete !== null}
+        title="ลบสถานที่ออกจากทริป?"
+        message={`คุณแน่ใจหรือไม่ว่าต้องการลบ "${itemToDelete?.nameTh || 'สถานที่นี้'}" ออกจากแผนการเดินทางของวันนี้?`}
+        confirmLabel="ยืนยันการลบ"
+        cancelLabel="ยกเลิก"
+        onConfirm={() => {
+          if (itemToDelete) {
+            handleDeleteItem(itemToDelete.id);
+            setItemToDelete(null);
+          }
+        }}
+        onCancel={() => setItemToDelete(null)}
+      />
     </div>
   );
 };

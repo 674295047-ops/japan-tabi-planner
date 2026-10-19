@@ -11,6 +11,7 @@ import { isSuperAdmin } from '../config/roles';
 import { REGIONS, CATEGORIES } from '../data/japanData';
 import type { UserRole, UserStatus } from '../types/auth';
 import type { Category, Destination, Region, Season } from '../types';
+import { ConfirmModal } from './ConfirmModal';
 
 type AdminTab = 'dashboard' | 'users' | 'destinations' | 'announcements' | 'activitylog';
 
@@ -41,6 +42,7 @@ export const AdminConsole: React.FC = () => {
   const [annTitle, setAnnTitle] = useState('');
   const [annContent, setAnnContent] = useState('');
   const [annPinned, setAnnPinned] = useState(false);
+  const [confirmDeleteAnnId, setConfirmDeleteAnnId] = useState<string | null>(null);
 
   // Destination CRUD State
   const [destSearch, setDestSearch] = useState('');
@@ -903,7 +905,7 @@ export const AdminConsole: React.FC = () => {
                           {ann.pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
                         </button>
                         <button
-                          onClick={() => deleteAnnouncement(ann.id)}
+                          onClick={() => setConfirmDeleteAnnId(ann.id)}
                           className="p-1.5 rounded-lg bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer"
                           title="ลบประกาศ"
                         >
@@ -916,6 +918,22 @@ export const AdminConsole: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {/* Confirm Modal for Announcement Deletion */}
+          <ConfirmModal
+            isOpen={confirmDeleteAnnId !== null}
+            title="ยืนยันการลบประกาศ?"
+            message="คุณต้องการลบประกาศนี้ออกจากระบบใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้"
+            confirmLabel="ยืนยันการลบ"
+            cancelLabel="ยกเลิก"
+            onConfirm={() => {
+              if (confirmDeleteAnnId) {
+                deleteAnnouncement(confirmDeleteAnnId);
+                setConfirmDeleteAnnId(null);
+              }
+            }}
+            onCancel={() => setConfirmDeleteAnnId(null)}
+          />
         </div>
       )}
 

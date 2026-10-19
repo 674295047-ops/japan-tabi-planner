@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Heart, Plus, Trash2, Lock, LogIn } from 'lucide-react';
 import type { Destination } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { ConfirmModal } from './ConfirmModal';
 
 interface WishlistTabProps {
   wishlist: Destination[];
@@ -21,6 +22,7 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
   onOpenLoginModal,
 }) => {
   const { isAuthenticated } = useAuth();
+  const [destToRemove, setDestToRemove] = useState<Destination | null>(null);
 
   if (!isAuthenticated) {
     return (
@@ -96,7 +98,7 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
                     {dest.prefecture}
                   </span>
                   <button
-                    onClick={() => onRemoveFromWishlist(dest)}
+                    onClick={() => setDestToRemove(dest)}
                     className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-rose-500 hover:bg-rose-50 flex items-center justify-center transition-colors shadow-xs"
                     title="ลบออกจากรายการโปรด"
                   >
@@ -137,6 +139,22 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
           ))}
         </div>
       )}
+
+      {/* Confirmation Modal for removing from Wishlist */}
+      <ConfirmModal
+        isOpen={destToRemove !== null}
+        title="ลบออกจากรายการโปรด?"
+        message={`คุณต้องการลบ "${destToRemove?.nameTh || 'สถานที่นี้'}" ออกจากรายการที่บันทึกไว้ใช่หรือไม่?`}
+        confirmLabel="ยืนยันการลบ"
+        cancelLabel="ยกเลิก"
+        onConfirm={() => {
+          if (destToRemove) {
+            onRemoveFromWishlist(destToRemove);
+            setDestToRemove(null);
+          }
+        }}
+        onCancel={() => setDestToRemove(null)}
+      />
     </div>
   );
 };
