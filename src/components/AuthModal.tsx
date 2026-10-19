@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
-import { X, Sparkles, ShieldCheck, Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { 
+  X, Sparkles, ShieldCheck, Mail, Lock, User, Eye, EyeOff, 
+  AlertCircle, CheckCircle2, Crown, Shield, UserCheck, ArrowRight
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface AuthModalProps {
@@ -24,8 +27,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState('');
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(false);
 
-  // Error & Success Feedback
+  // Loading, Error & Success Feedback
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -38,26 +43,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setSuccessMessage(null);
   };
 
+  // Basic email format validation
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   // Submit Sign In
   const handleSignInSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!signInEmail || !signInPassword) {
+    const cleanEmail = signInEmail.trim();
+    if (!cleanEmail || !signInPassword) {
       setErrorMessage('กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน');
       return;
     }
 
-    const result = loginWithEmailPassword(signInEmail, signInPassword);
-    if (result.success) {
-      setSuccessMessage('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับกลับ!');
-      setTimeout(() => {
-        onClose();
-        setSuccessMessage(null);
-      }, 700);
-    } else {
-      setErrorMessage(result.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+    if (!isValidEmail(cleanEmail)) {
+      setErrorMessage('รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
+      return;
     }
+
+    setIsLoading(true);
+    setTimeout(() => {
+      const result = loginWithEmailPassword(cleanEmail, signInPassword);
+      setIsLoading(false);
+      if (result.success) {
+        setSuccessMessage('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับกลับ!');
+        setTimeout(() => {
+          onClose();
+          setSuccessMessage(null);
+        }, 700);
+      } else {
+        setErrorMessage(result.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+      }
+    }, 300);
   };
 
   // Submit Sign Up
@@ -65,13 +85,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!signUpName || !signUpEmail || !signUpPassword || !signUpConfirmPassword) {
+    const cleanName = signUpName.trim();
+    const cleanEmail = signUpEmail.trim().toLowerCase();
+
+    if (!cleanName || !cleanEmail || !signUpPassword || !signUpConfirmPassword) {
       setErrorMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง');
       return;
     }
 
-    if (signUpPassword !== signUpConfirmPassword) {
-      setErrorMessage('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน');
+    if (!isValidEmail(cleanEmail)) {
+      setErrorMessage('รูปแบบอีเมลไม่ถูกต้อง (เช่น user@example.com)');
       return;
     }
 
@@ -80,22 +103,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       return;
     }
 
-    const result = registerUser(signUpName, signUpEmail, signUpPassword);
-    if (result.success) {
-      setSuccessMessage('สมัครสมาชิกและเข้าสู่ระบบสำเร็จ ยินดีต้อนรับ!');
-      setTimeout(() => {
-        onClose();
-        setSuccessMessage(null);
-      }, 700);
-    } else {
-      setErrorMessage(result.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
+    if (signUpPassword !== signUpConfirmPassword) {
+      setErrorMessage('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน');
+      return;
     }
-  };
 
-  // Fill quick demo credentials
-  const fillDemoCredentials = () => {
-    setSignInEmail('somchai@japan.com');
-    setSignInPassword('password123');
+    setIsLoading(true);
+    setTimeout(() => {
+      const result = registerUser(cleanName, cleanEmail, signUpPassword);
+      setIsLoading(false);
+      if (result.success) {
+        setSuccessMessage('สมัครสมาชิกและเข้าสู่ระบบสำเร็จ ยินดีต้อนรับ!');
+        setTimeout(() => {
+          onClose();
+          setSuccessMessage(null);
+        }, 700);
+      } else {
+        setErrorMessage(result.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
+      }
+    }, 300);
   };
 
   return (
@@ -119,7 +145,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </div>
           <div>
             <h3 className="text-lg font-extrabold text-slate-900">
-              {mode === 'signin' ? 'ยินดีต้อนรับกลับ' : 'สร้างบัญชีผู้ใช้ใหม่'}
+              {mode === 'signin' ? 'เข้าสู่ระบบ (Sign In)' : 'สมัครสมาชิก (Sign Up)'}
             </h3>
             <p className="text-xs text-slate-500">
               JAPAN TABI • ระบบวางแผนท่องเที่ยวญี่ปุ่น
@@ -132,7 +158,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <button
             type="button"
             onClick={() => handleSwitchMode('signin')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+            className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               mode === 'signin'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-500 hover:text-slate-800'
@@ -143,7 +169,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <button
             type="button"
             onClick={() => handleSwitchMode('signup')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+            className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               mode === 'signup'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-500 hover:text-slate-800'
@@ -200,7 +226,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={() => setShowSignInPassword(!showSignInPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   {showSignInPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -208,20 +234,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Quick Demo Fill Links */}
-            <div className="pt-1 space-y-1.5 border-t border-slate-100 mt-2">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="pt-2 border-t border-slate-100">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 คลิกเพื่อทดสอบเข้าสู่ระบบตามสิทธิ์:
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
                     setSignInEmail('muhammadrokibchemat@gmail.com');
                     setSignInPassword('Admin@123456');
                   }}
-                  className="px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-[10px] font-bold text-left truncate flex items-center gap-1 border border-amber-200"
+                  className="px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-[10px] font-bold text-left truncate flex items-center gap-1 border border-amber-200 cursor-pointer"
+                  title="Super Admin: muhammadrokibchemat@gmail.com"
                 >
-                  <span>👑 Super Admin</span>
+                  <Crown className="w-3 h-3 text-amber-600 shrink-0" />
+                  <span className="truncate">Super Admin</span>
                 </button>
                 <button
                   type="button"
@@ -229,19 +257,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     setSignInEmail('seree999@gmail.com');
                     setSignInPassword('Admin@123456');
                   }}
-                  className="px-2 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-[10px] font-bold text-left truncate flex items-center gap-1 border border-indigo-200"
+                  className="px-2 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-[10px] font-bold text-left truncate flex items-center gap-1 border border-indigo-200 cursor-pointer"
+                  title="Admin: seree999@gmail.com"
                 >
-                  <span>🛡️ Admin</span>
+                  <Shield className="w-3 h-3 text-indigo-600 shrink-0" />
+                  <span className="truncate">Admin</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSignInEmail('somchai@japan.com');
+                    setSignInPassword('password123');
+                  }}
+                  className="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-800 text-[10px] font-bold text-left truncate flex items-center gap-1 border border-slate-200 cursor-pointer"
+                  title="User: somchai@japan.com"
+                >
+                  <UserCheck className="w-3 h-3 text-slate-600 shrink-0" />
+                  <span className="truncate">User ทั่วไป</span>
                 </button>
               </div>
             </div>
 
-
             <button
               type="submit"
-              className="w-full py-2.5 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-all shadow-sm cursor-pointer mt-1"
+              disabled={isLoading}
+              className="w-full py-2.5 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm cursor-pointer mt-1 flex items-center justify-center gap-2"
             >
-              เข้าสู่ระบบ
+              <span>{isLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}</span>
+              {!isLoading && <ArrowRight className="w-3.5 h-3.5" />}
             </button>
           </form>
         )}
@@ -258,14 +301,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   value={signUpName}
                   onChange={(e) => setSignUpName(e.target.value)}
                   placeholder="เช่น สมชาย ใจดี หรือ Kenji"
-                  className="w-full pl-10 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">อีเมล</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">อีเมล (Email)</label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -273,7 +316,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   value={signUpEmail}
                   onChange={(e) => setSignUpEmail(e.target.value)}
                   placeholder="your-email@example.com"
-                  className="w-full pl-10 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
                   required
                 />
               </div>
@@ -287,14 +330,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   type={showSignUpPassword ? 'text' : 'password'}
                   value={signUpPassword}
                   onChange={(e) => setSignUpPassword(e.target.value)}
-                  placeholder="กำหนดรหัสผ่าน"
-                  className="w-full pl-10 pr-10 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                  placeholder="กำหนดรหัสผ่านอย่างน้อย 6 ตัวอักษร"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowSignUpPassword(!showSignUpPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   {showSignUpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -306,21 +349,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
-                  type={showSignUpPassword ? 'text' : 'password'}
+                  type={showSignUpConfirmPassword ? 'text' : 'password'}
                   value={signUpConfirmPassword}
                   onChange={(e) => setSignUpConfirmPassword(e.target.value)}
                   placeholder="กรอกรหัสผ่านซ้ำอีกครั้ง"
-                  className="w-full pl-10 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowSignUpConfirmPassword(!showSignUpConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showSignUpConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm cursor-pointer mt-1"
+              disabled={isLoading}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm cursor-pointer mt-2 flex items-center justify-center gap-2"
             >
-              สมัครสมาชิก
+              <span>{isLoading ? 'กำลังสร้างบัญชี...' : 'สมัครสมาชิก'}</span>
+              {!isLoading && <ArrowRight className="w-3.5 h-3.5" />}
             </button>
           </form>
         )}
@@ -329,7 +381,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         <div className="relative my-5 flex items-center justify-center">
           <div className="border-t border-slate-200 w-full" />
           <span className="bg-white px-3 text-[11px] font-semibold text-slate-400 absolute">
-            หรือเข้าสู่ระบบด้วย
+            หรือดำเนินการต่อด้วย
           </span>
         </div>
 
@@ -345,6 +397,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               }}
               onError={() => {
                 console.error('Google Sign-In Failed');
+                setErrorMessage('การเข้าสู่ระบบผ่าน Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
               }}
               shape="pill"
               theme="outline"
@@ -353,33 +406,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             />
           </div>
 
-          <div className="w-full grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                loginDemoUser('super_admin');
-                onClose();
-              }}
-              className="py-1.5 px-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 text-[11px] font-bold border border-amber-300 transition-all flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <span>👑 Demo Super Admin</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                loginDemoUser('admin');
-                onClose();
-              }}
-              className="py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-900 text-[11px] font-bold border border-indigo-300 transition-all flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <span>🛡️ Demo Admin</span>
-            </button>
+          <div className="w-full flex items-center justify-center pt-1">
+            <div className="text-[10px] text-slate-400 text-center">
+              รองรับทั้ง Google One Tap และอีเมลทั่วไป
+            </div>
           </div>
-
         </div>
 
         {/* Security Footer */}
-        <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
           <span>ข้อมูลปลอดภัยและจัดเก็บเป็นความลับ</span>
         </div>
