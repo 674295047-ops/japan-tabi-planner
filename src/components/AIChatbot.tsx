@@ -6,15 +6,15 @@ import {
   X, 
   RotateCcw, 
   MapPin, 
-  Calendar, 
   Heart, 
   PlusCircle, 
-  HelpCircle,
-  ExternalLink,
-  ChevronDown,
-  Compass
+  Info,
+  Calendar,
+  Clock,
+  JapaneseYen,
+  ShieldCheck
 } from 'lucide-react';
-import type { Destination } from '../types';
+import type { Destination, Region, Season, Category } from '../types';
 
 interface Message {
   id: string;
@@ -23,6 +23,7 @@ interface Message {
   timestamp: string;
   matchedDestinations?: Destination[];
   suggestions?: string[];
+  isOutOfScope?: boolean;
 }
 
 interface AIChatbotProps {
@@ -36,13 +37,13 @@ interface AIChatbotProps {
 }
 
 const QUICK_SUGGESTIONS = [
-  '🌸 เที่ยวญี่ปุ่นช่วงใบไม้ผลิที่ไหนดี?',
-  '🍁 จุดชมใบไม้เปลี่ยนสีไฮไลท์',
-  '❄️ อยากเล่นหิมะหรือไปฮอกไกโด',
-  '⛩️ แนะนำวัดและศาลเจ้าชื่อดัง',
-  '🍜 แนะนำของกินและย่านช้อปปิ้ง',
-  '💰 มีสถานที่เที่ยวฟรีหรือค่าเข้าถูกไหม?',
-  '🚅 วิธีวางแผนเที่ยวคันไซ โตเกียว หรือคิวชู',
+  '🌸 ในเว็บมีที่เที่ยวชมซากุระที่ไหนบ้าง?',
+  '🍁 แนะนำที่เที่ยวชมใบไม้เปลี่ยนสีในระบบ',
+  '⛩️ วัดและศาลเจ้าที่มีในเว็บไซต์',
+  '💰 มีสถานที่เข้าชมฟรีที่ไหนบ้างในเว็บ?',
+  '🗼 มีสถานที่เที่ยวในโตเกียวหรือคันโตไหม?',
+  '🍵 แนะนำสถานที่ในเกียวโตหรือคันไซ',
+  '💡 เว็บไซต์นี้ใช้งานยังไง มีฟีเจอร์อะไรบ้าง?',
 ];
 
 export function AIChatbot({
@@ -63,13 +64,13 @@ export function AIChatbot({
     {
       id: 'welcome-msg',
       sender: 'ai',
-      text: 'สวัสดีครับ! ยินดีต้อนรับสู่ **Japan Tabi AI Assistant** 🎌✨\nผมคือผู้ช่วยอัจฉริยะสำหรับวางแผนเที่ยวญี่ปุ่น คุณสามารถถามเกี่ยวกับสถานที่ท่องเที่ยว ภูมิภาค ฤดูกาล หรือสอบถามงบประมาณและข้อมูลการเดินทางได้เลยครับ!',
+      text: `สวัสดีครับ! ผมคือ **Japan Tabi Assistant** 🎌✨\nผู้ช่วยตอบคำถามเฉพาะข้อมูลภายในเว็บไซต์ **Japan Tabi Discovery & Itinerary Planner** เท่านั้นครับ\n\n📌 **สิ่งที่คุณสามารถสอบถามได้:**\n• ข้อมูลสถานที่ท่องเที่ยวทั้ง **${destinations.length} แห่ง** ในฐานข้อมูลเว็บไซต์ (ค่าเข้า, เวลาเปิด-ปิด, สถานีใกล้เคียง, ฤดูกาลแนะนำ, เกร็ดท่องเที่ยว)\n• การค้นหาสถานที่ตามภูมิภาค (คันโต, คันไซ, ฮอกไกโด, คิวชู ฯลฯ) หรือหมวดหมู่\n• แนะนำสถานที่เข้าฟรี หรือสถานที่ตามฤดูที่มีบันทึกไว้ในเว็บ\n• วิธีการใช้งานระบบเว็บ (การจัดทริป, บันทึกรายการโปรด, เข้าสู่ระบบ, การจัดการข้อมูล)`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       suggestions: [
-        '🌸 แนะนำที่เที่ยวฤดูใบไม้ผลิ',
-        '⛩️ ศาลเจ้าหรือวัดสวยๆ',
-        '🍜 ย่านของกินยอดฮิต',
-        '🗻 แนะนำที่เที่ยววิวฟูจิ',
+        '🌸 ที่เที่ยวใบไม้ผลิในเว็บ',
+        '⛩️ วัดและศาลเจ้าที่มีในเว็บ',
+        '💰 สถานที่เข้าชมฟรีในระบบ',
+        '💡 วิธีใช้งานระบบจัดทริป',
       ],
     },
   ]);
@@ -84,93 +85,253 @@ export function AIChatbot({
     }
   }, [messages, isOpen, isTyping]);
 
-  // AI Response generator with destination matching and natural travel knowledge
-  const generateAIResponse = (userQuery: string): { text: string; matched: Destination[]; suggestions: string[] } => {
-    const query = userQuery.toLowerCase().trim();
-    let matched: Destination[] = [];
-    let text = '';
-    let suggestions: string[] = [];
+  // Strict domain-specific answer generator: ONLY answers based on website data & features
+  const generateStrictWebResponse = (userQuery: string): { 
+    text: string; 
+    matched: Destination[]; 
+    suggestions: string[];
+    isOutOfScope?: boolean;
+  } => {
+    const rawQuery = userQuery.trim();
+    const query = rawQuery.toLowerCase();
 
-    // Check for Season intent
-    if (query.includes('ใบไม้ผลิ') || query.includes('ซากุระ') || query.includes('spring')) {
-      matched = destinations.filter((d) => d.recommendedSeasons?.includes('spring')).slice(0, 4);
-      text = `🌸 สำหรับ **ฤดูใบไม้ผลิ (มีนาคม - พฤษภาคม)** เป็นช่วงเวลาทองของการชมดอกซากุระบานสะพรั่ง อากาศเย็นสบายกำลังดี (10°C - 20°C)!\n\nสถานที่ไฮไลท์ที่แนะนำ:\n- เดินชมซากุระที่วัดและปราสาทชื่อดัง\n- ล่องเรือชมกลีบซากุระในแม่น้ำหรือคลอง\n- ปิกนิกฮานามิ (Hanami) ในสวนสาธารณะ`;
-      suggestions = ['🍁 แล้วฤดูใบไม้ร่วงล่ะ?', '⛩️ แนะนำวัดในเกียวโต', '🚅 วางแผนทริป 3 วัน'];
-    } else if (query.includes('ใบไม้เปลี่ยนสี') || query.includes('ใบไม้แดง') || query.includes('ฤดูใบไม้ร่วง') || query.includes('autumn') || query.includes('fall')) {
-      matched = destinations.filter((d) => d.recommendedSeasons?.includes('autumn')).slice(0, 4);
-      text = `🍁 ใน **ฤดูใบไม้ร่วง (กันยายน - พฤศจิกายน)** ญี่ปุ่นจะถูกแต่งแต้มด้วยสีส้ม แดง และทองอย่างตระการตา อากาศสดชื่นและฟ้าโปร่งมาก เหมาะกับการท่องเที่ยวและถ่ายรูปสุดๆ ครับ!`;
-      suggestions = ['❄️ เที่ยวหน้าหนาวมีที่ไหนเด่น?', '🌸 จุดชมซากุระยอดนิยม', '🍜 ของกินขึ้นชื่อ'];
-    } else if (query.includes('หิมะ') || query.includes('หน้าหนาว') || query.includes('ฤดูหนาว') || query.includes('winter') || query.includes('สกี')) {
-      matched = destinations.filter((d) => d.recommendedSeasons?.includes('winter') || d.region === 'Hokkaido' || d.region === 'Tohoku' || d.region === 'Chubu').slice(0, 4);
-      text = `❄️ สำหรับ **ฤดูหนาว (ธันวาคม - กุมภาพันธ์)** ไฮไลท์ที่ไม่ควรพลาดคือเทศกาลหิมะที่ฮอกไกโด แช่ออนเซ็นกลางหิมะ (Rotenburo) และกิจกรรมสกีสุดมันส์ที่รีสอร์ทระดับโลก!`;
-      suggestions = ['♨️ แนะนำออนเซ็นสวยๆ', '⛄ แนะนำที่เที่ยวฮอกไกโด', '💰 งบเที่ยวญี่ปุ่นประมาณเท่าไหร่'];
-    } else if (query.includes('หน้าร้อน') || query.includes('ฤดูร้อน') || query.includes('summer')) {
-      matched = destinations.filter((d) => d.recommendedSeasons?.includes('summer') || d.region === 'Hokkaido' || d.region === 'Okinawa').slice(0, 4);
-      text = `☀️ ใน **ฤดูร้อน (มิถุนายน - สิงหาคม)** ไฮไลท์คือเทศกาลฤดูร้อน (Matsuri), เทศกาลดอกไม้ไฟ (Hanabi), ชมทุ่งลาเวนเดอร์ที่ฟุราโนะ ฮอกไกโด และทะเลใสที่โอกินาวา!`;
-      suggestions = ['🌸 ที่เที่ยวฤดูใบไม้ผลิ', '🍜 ราเมนและสตรีทฟู้ด', '🏯 ปราสาทและประวัติศาสตร์'];
+    // 1. Detect completely unrelated questions (Off-topic check)
+    const outOfScopePatterns = [
+      'สภาพอากาศวันนี้', 'พยากรณ์อากาศ', 'หุ้น', 'บิตคอยน์', 'crypto', 'การเมือง', 'เลือกตั้ง',
+      'เขียนโค้ด', 'python', 'javascript', 'สูตรคณิต', 'เพลง', 'ดูดวง', 'ฟุตบอล', 'บอลโลก',
+      'แปลภาษา', 'หนัง', 'ซีรีส์', 'ยุโรป', 'อเมริกา', 'เกาหลี', 'ไทยเที่ยว', 'สายการบินไหนถูกสุด',
+      'จองตั๋วเครื่องบิน', 'วีซ่าผ่านยังไง', 'ซิมการ์ด', 'แลกเงินเรทไหน'
+    ];
+
+    const isExplicitlyOutOfScope = outOfScopePatterns.some((pattern) => query.includes(pattern));
+    if (isExplicitlyOutOfScope) {
+      return {
+        text: `⚠️ **ขออภัยครับ:** ผมเป็นผู้ช่วยที่ตอบเฉพาะ **ข้อมูลภายในเว็บไซต์ Japan Tabi** เท่านั้นครับ (เช่น ข้อมูลสถานที่ท่องเที่ยว ${destinations.length} แห่ง, ค่าเข้าชม, เวลาเปิด-ปิด, สถานีรถไฟใกล้เคียง และวิธีใช้งานฟีเจอร์ในเว็บ)\n\nกรุณาสอบถามเกี่ยวกับสถานที่ท่องเที่ยวหรือฟังก์ชันการใช้งานที่มีบนเว็บไซต์ของเรานะครับ 😊`,
+        matched: [],
+        suggestions: [
+          '🌸 ดูสถานที่ท่องเที่ยวในเว็บ',
+          '💰 สถานที่เที่ยวที่เข้าชมฟรี',
+          '🗺️ วิธีจัดแผนท่องเที่ยวในเว็บ',
+        ],
+        isOutOfScope: true,
+      };
     }
 
-    // Check for Region intent
-    else if (query.includes('โตเกียว') || query.includes('tokyo') || query.includes('คันโต') || query.includes('kanto')) {
-      matched = destinations.filter((d) => d.region === 'Kanto' || d.prefecture.includes('Tokyo') || d.prefecture.includes('โตเกียว')).slice(0, 4);
-      text = `🗼 **ภูมิภาคคันโต / โตเกียว (Tokyo & Kanto)**\nมหานครศูนย์กลางความทันสมัย ช้อปปิ้ง แสงสีเสียง และผสมผสานวัดวาอารามดั้งเดิมอย่างลงตัว เดินทางสะดวกด้วยรถไฟ JR และ Tokyo Metro`;
-      suggestions = ['⛩️ วัดเซ็นโซจิ (Sensoji)', '🍜 ย่านของกินในโตเกียว', '🚄 เที่ยวข้ามไปโอซาก้า'];
-    } else if (query.includes('โอซาก้า') || query.includes('osaka') || query.includes('เกียวโต') || query.includes('kyoto') || query.includes('คันไซ') || query.includes('kansai') || query.includes('นารา')) {
-      matched = destinations.filter((d) => d.region === 'Kansai').slice(0, 4);
-      text = `⛩️ **ภูมิภาคคันไซ (Kansai - Osaka, Kyoto, Nara, Kobe)**\nดินแดนแห่งวัฒนธรรมโบราณและครัวแห่งญี่ปุ่น! เกียวโตเต็มไปด้วยวัดพันปีและศาลเจ้าสีสาด ขณะที่โอซาก้าเต็มไปด้วยเสน่ห์ของอาหาร สตรีทฟู้ด และความคึกคัก`;
-      suggestions = ['🍣 ตลาดคุโรมง โอซาก้า', '⛩️ ศาลเจ้าฟูชิมิอินาริ', '🏯 ปราสาทโอซาก้า'];
-    } else if (query.includes('ฮอกไกโด') || query.includes('hokkaido') || query.includes('ซัปโปโร')) {
-      matched = destinations.filter((d) => d.region === 'Hokkaido').slice(0, 4);
-      text = `⛄ **ฮอกไกโด (Hokkaido)**\nเกาะเหนือสุดของญี่ปุ่น โด่งดังด้วยทัศนียภาพธรรมชาติอันยิ่งใหญ่ ทุ่งดอกไม้ฤดูร้อน หิมะขาวปุยนุ่ม (Powder Snow) และอาหารทะเลสดใหม่ระดับพรีเมียม!`;
-      suggestions = ['❄️ เทศกาลหิมะซัปโปโร', '🦀 อาหารทะเลฮอกไกโด', '🌸 แนะนำเที่ยวช่วงใบไม้ผลิ'];
-    } else if (query.includes('ฟูจิ') || query.includes('fuji') || query.includes('คาวากุจิโกะ') || query.includes('kawaguchiko') || query.includes('ชูบุ') || query.includes('chubu')) {
-      matched = destinations.filter((d) => d.nameEn.toLowerCase().includes('fuji') || d.nameTh.includes('ฟูจิ') || d.region === 'Chubu').slice(0, 4);
-      text = `🗻 **ภูเขาไฟฟูจิ & บริเวณทะเลสาบคาวากุจิโกะ (Mount Fuji)**\nสัญลักษณ์อันเป็นนิรันดร์ของญี่ปุ่น สามารถชมวิวฟูจิสะท้อนผิวน้ำที่ทะเลสาบคาวากุจิโกะ หรือขึ้นกระเช้าลอยฟ้าและแช่ออนเซ็นพร้อมวิวฟูจิสุดโรแมนติกครับ!`;
-      suggestions = ['⛩️ จุดถ่ายรูปเจดีย์ชูเรโตะ', '♨️ แนะนำที่พักออนเซ็น', '🚅 วิธีเดินทางจากโตเกียว'];
-    } else if (query.includes('คิวชู') || query.includes('kyushu') || query.includes('ฟุกุโอกะ')) {
-      matched = destinations.filter((d) => d.region === 'Kyushu').slice(0, 4);
-      text = `🌋 **ภูมิภาคคิวชู (Kyushu - Fukuoka, Beppu, Kumamoto)**\nดินแดนออนเซ็นระดับท็อป ภูเขาไฟธรรมชาติ และราเมนทงคตสึเข้มข้น มีรถไฟท่องเที่ยวดีไซน์เอกลักษณ์มากมายครับ`;
-      suggestions = ['♨️ แช่ออนเซ็นเบปปุ', '🍜 ฮากาตะราเมน', '🏯 ปราสาทคุมาโมโตะ'];
+    // 2. Questions about Website Features & How to use the Web App
+    if (
+      query.includes('วิธีใช้') || query.includes('ใช้งานยังไง') || query.includes('ฟีเจอร์') ||
+      query.includes('จัดแผน') || query.includes('แพลนเนอร์') || query.includes('itinerary') ||
+      query.includes('รายการโปรด') || query.includes('wishlist') || query.includes('เข้าสู่ระบบ') ||
+      query.includes('สมัครสมาชิก') || query.includes('เว็บนี้ทำอะไรได้') || query.includes('ระบบ')
+    ) {
+      let webFeatureInfo = `🌐 **คู่มือการใช้งานเว็บไซต์ Japan Tabi:**\n\n`;
+      webFeatureInfo += `1. **ค้นพบ (Discover):** ค้นหาและคัดกรองสถานที่ท่องเที่ยวในญี่ปุ่นจากฐานข้อมูล ${destinations.length} แห่ง กรองตามภูมิภาค (Region), หมวดหมู่ (Category), และฤดูกาล (Season)\n`;
+      webFeatureInfo += `2. **จัดแผนทริป (Itinerary Planner):** เพิ่มสถานที่ลงในแผนทริปแต่ละวัน (Day 1, 2, 3...) จัดลำดับและระบุเวลาเยี่ยมชม\n`;
+      webFeatureInfo += `3. **รายการโปรด (Wishlist):** กดไอคอนหัวใจ ❤️ เพื่อบันทึกสถานที่ที่สนใจเก็บไว้ดูภายหลัง\n`;
+      webFeatureInfo += `4. **ระบบสมาชิก (Auth & OAuth):** เข้าสู่ระบบผ่าน Google หรืออีเมล เพื่อปลดล็อกการจัดแผนทริปและบันทึกรายการโปรด\n`;
+      webFeatureInfo += `5. **ระบบผู้ดูแล (Admin Console):** สำหรับ Super Admin และ Admin ในการเพิ่ม/แก้ไข/ลบสถานที่และจัดการประกาศ`;
+
+      return {
+        text: webFeatureInfo,
+        matched: [],
+        suggestions: [
+          '⛩️ แสดงสถานที่ทั้งหมดในเว็บ',
+          '💰 แนะนำสถานที่เข้าชมฟรี',
+          '🌸 ที่เที่ยวตามฤดูในเว็บ',
+        ],
+      };
     }
 
-    // Check for Category intent
-    else if (query.includes('วัด') || query.includes('ศาลเจ้า') || query.includes('temple') || query.includes('shrine')) {
-      matched = destinations.filter((d) => d.category === 'temple' || d.category === 'history').slice(0, 4);
-      text = `⛩️ **วัดและศาลเจ้าในญี่ปุ่น (Temples & Shrines)**\nสถานที่ศักดิ์สิทธิ์และงดงามด้วยสถาปัตยกรรมไม้โบราณ ทั้งวัดเซ็นโซจิในโตเกียว, เสาโทริอิพันต้นฟูชิมิอินาริ, และวัดคิโยมิสึเดระ (วัดน้ำใส)`;
-      suggestions = ['⛩️ วิธีขอพรที่ศาลเจ้า', '🍁 วัดชมใบไม้เปลี่ยนสี', '🌸 ซากุระรอบวัด'];
-    } else if (query.includes('กิน') || query.includes('อาหาร') || query.includes('ราเมน') || query.includes('ซูชิ') || query.includes('food') || query.includes('เนื้อ')) {
-      matched = destinations.filter((d) => d.category === 'food' || d.descriptionTh.includes('อาหาร') || d.tipsTh?.includes('กิน')).slice(0, 4);
-      text = `🍣 **แหล่งของกินและสตรีทฟู้ด (Food & Gourmet)**\nอาหารญี่ปุ่นขึ้นชื่อระดับโลก! ไม่ว่าจะเป็นซูชิสดๆ, ราเมนร้อนๆ, ทาโกะยากิ, หรือเนื้อวากิวชั้นเลิศ ลองแวะตลาดยอดนิยมหรือย่านสตรีทฟู้ดชื่อดังเพื่อสัมผัสรสชาติต้นตำรับ`;
-      suggestions = ['🍜 ราเมนเจ้าดัง', '🍣 ตลาดปลาซึกิจิและคุโรมง', '🍡 ขนมหวานสไตล์ญี่ปุ่น'];
-    } else if (query.includes('ฟรี') || query.includes('ประหยัด') || query.includes('งบ') || query.includes('ราคา') || query.includes('ค่าเข้า')) {
-      matched = destinations.filter((d) => d.admissionFeeYen === 0).slice(0, 4);
-      text = `💰 **สถานที่ท่องเที่ยวฟรี & ประหยัดงบ (Free & Budget-Friendly)**\nหลายแลนด์มาร์กระดับโลกในญี่ปุ่นสามารถเข้าชมได้ฟรี เช่น ศาลเจ้าฟูชิมิอินาริ, ศาลเจ้าเมจิ, วัดเซ็นโซจิ, สวนสาธารณะนารา หรือเดินเล่นย่านโดทงโบริ!`;
-      suggestions = ['🚅 แนะนำ JR Pass คุ้มไหม?', '🍱 ทริคประหยัดค่าอาหาร', '⛩️ ศาลเจ้าเข้าชมฟรี'];
-    } else if (query.includes('แผน') || query.includes('ทริป') || query.includes('วัน') || query.includes('itinerary')) {
-      matched = destinations.slice(0, 3);
-      text = `📅 **คำแนะนำการจัดแผนเที่ยว (Itinerary Planning)**\n- **ทริป 3-5 วันแรก:** แนะนำเลือก 1 ภูมิภาค เช่น โตเกียวและปริมณฑล หรือ คันไซ (โอซาก้า-เกียวโต-นารา)\n- **การเดินทาง:** ใช้บัตร IC Card (Suica/Pasmo/ICOCA) แตะสะดวกทุกสายรถไฟ\n- คุณสามารถใช้แท็บ **"จัดแผนทริป" (Itinerary Planner)** ของเว็บเรา เพื่อลากวางสถานที่และจัดตารางเวลาได้อย่างง่ายดายครับ!`;
-      suggestions = ['🌸 ที่เที่ยวฤดูใบไม้ผลิ', '🗼 ที่เที่ยวโตเกียว', '⛩️ ที่เที่ยวคันไซ'];
-    } else {
-      // General keyword search in destination catalog
-      matched = destinations.filter((d) => 
-        d.nameTh.toLowerCase().includes(query) ||
-        d.nameEn.toLowerCase().includes(query) ||
-        d.descriptionTh.toLowerCase().includes(query) ||
-        d.prefecture.toLowerCase().includes(query)
-      ).slice(0, 4);
+    // 3. Questions about Seasons within website destinations
+    if (query.includes('ซากุระ') || query.includes('ใบไม้ผลิ') || query.includes('spring')) {
+      const matched = destinations.filter((d) => d.recommendedSeasons?.includes('spring'));
+      return {
+        text: `🌸 **สถานที่ท่องเที่ยวแนะนำสำหรับฤดูใบไม้ผลิ (ซากุระ) ที่มีในฐานข้อมูลเว็บไซต์ (${matched.length} แห่ง):**\nระบบได้รวบรวมสถานที่ที่มีป้ายแนะนำฤดูใบไม้ผลิไว้ คุณสามารถกดดูรายละเอียดหรือเพิ่มเข้าแผนทริปได้เลยครับ`,
+        matched: matched.slice(0, 5),
+        suggestions: ['🍁 ที่เที่ยวฤดูใบไม้ร่วงในเว็บ', '❄️ ที่เที่ยวฤดูหนาวในเว็บ', '💰 สถานที่เข้าฟรี'],
+      };
+    }
 
-      if (matched.length > 0) {
-        text = `🔎 พบ **${matched.length} สถานที่** ที่ตรงกับ "${userQuery}" ที่น่าสนใจครับ:`;
-        suggestions = ['📍 ดูรายละเอียดสถานที่', '📅 เพิ่มเข้าแผนทริป', '🌸 แนะนำเที่ยวตามฤดู'];
-      } else {
-        // Fallback helpful travel AI message
-        text = `🎌 ยินดีแนะนำการเดินทางครับ! สำหรับเรื่อง "${userQuery}" แนะนำให้ลองค้นหาตามหมวดหมู่ เช่น:\n- **ภูมิภาค:** คันโต, คันไซ, ฮอกไกโด, คิวชู, ชูบุ\n- **ฤดูกาล:** ซากุระใบไม้ผลิ, ใบไม้แดง, หิมะหน้าหนาว\n- **ประเภท:** วัดและศาลเจ้า, ธรรมชาติ, ของกิน, แหล่งช้อปปิ้ง\n\nหรือเลือกหัวข้อคำถามด่วนด้านล่างได้เลยครับ! 😊`;
-        matched = destinations.slice(0, 3);
-        suggestions = QUICK_SUGGESTIONS.slice(0, 4);
+    if (query.includes('ใบไม้เปลี่ยนสี') || query.includes('ใบไม้แดง') || query.includes('ฤดูใบไม้ร่วง') || query.includes('autumn') || query.includes('fall')) {
+      const matched = destinations.filter((d) => d.recommendedSeasons?.includes('autumn'));
+      return {
+        text: `🍁 **สถานที่ชมใบไม้เปลี่ยนสีที่มีบันทึกในเว็บไซต์ (${matched.length} แห่ง):**\nสถานที่ด้านล่างนี้ถูกแนะนำเป็นพิเศษสำหรับช่วงฤดูใบไม้ร่วงในระบบของเราครับ`,
+        matched: matched.slice(0, 5),
+        suggestions: ['🌸 ที่เที่ยวฤดูใบไม้ผลิในเว็บ', '❄️ ที่เที่ยวฤดูหนาวในเว็บ', '🗼 ที่เที่ยวโตเกียวในเว็บ'],
+      };
+    }
+
+    if (query.includes('หิมะ') || query.includes('หนาว') || query.includes('winter') || query.includes('สกี')) {
+      const matched = destinations.filter((d) => d.recommendedSeasons?.includes('winter'));
+      return {
+        text: `❄️ **สถานที่ท่องเที่ยวฤดูหนาวที่มีในเว็บไซต์ (${matched.length} แห่ง):**\nจุดหมายปลายทางที่แนะนำสำหรับหน้าหนาวตามฐานข้อมูลของเว็บเรา:`,
+        matched: matched.slice(0, 5),
+        suggestions: ['♨️ ออนเซ็นในเว็บ', '🌸 ที่เที่ยวฤดูใบไม้ผลิในเว็บ', '🍣 ที่กินในเว็บ'],
+      };
+    }
+
+    if (query.includes('หน้าร้อน') || query.includes('ฤดูร้อน') || query.includes('summer')) {
+      const matched = destinations.filter((d) => d.recommendedSeasons?.includes('summer'));
+      return {
+        text: `☀️ **สถานที่ท่องเที่ยวฤดูร้อนที่มีในเว็บไซต์ (${matched.length} แห่ง):**\nสถานที่ที่แนะนำสำหรับเที่ยวช่วงฤดูร้อนในฐานข้อมูลเว็บไซต์:`,
+        matched: matched.slice(0, 5),
+        suggestions: ['🌸 ที่เที่ยวฤดูใบไม้ผลิในเว็บ', '🍁 ที่เที่ยวฤดูใบไม้ร่วงในเว็บ', '💰 สถานที่เข้าฟรี'],
+      };
+    }
+
+    // 4. Questions about Free admission / Pricing in website
+    if (query.includes('ฟรี') || query.includes('ค่าเข้า') || query.includes('ราคา') || query.includes('เยน') || query.includes('admission') || query.includes('fee')) {
+      const freeDests = destinations.filter((d) => d.admissionFeeYen === 0);
+      return {
+        text: `💰 **สถานที่ท่องเที่ยวที่เข้าชมฟรี (0 เยน) ในเว็บไซต์ (${freeDests.length} แห่ง):**\nตามข้อมูลค่าเข้าชมที่บันทึกในฐานข้อมูลเว็บเรา มีสถานที่เข้าชมฟรีดังนี้ครับ:`,
+        matched: freeDests.slice(0, 5),
+        suggestions: ['⛩️ วัดและศาลเจ้าในเว็บ', '🗼 ที่เที่ยวคันโตในเว็บ', '🍵 ที่เที่ยวคันไซในเว็บ'],
+      };
+    }
+
+    // 5. Questions by Region (Hokkaido, Tohoku, Kanto, Chubu, Kansai, Chugoku, Shikoku, Kyushu, Okinawa)
+    const regionMap: Record<string, Region> = {
+      'ฮอกไกโด': 'Hokkaido',
+      'hokkaido': 'Hokkaido',
+      'โทโฮคุ': 'Tohoku',
+      'tohoku': 'Tohoku',
+      'คันโต': 'Kanto',
+      'kanto': 'Kanto',
+      'โตเกียว': 'Kanto',
+      'tokyo': 'Kanto',
+      'ชูบุ': 'Chubu',
+      'chubu': 'Chubu',
+      'ฟูจิ': 'Chubu',
+      'คันไซ': 'Kansai',
+      'kansai': 'Kansai',
+      'โอซาก้า': 'Kansai',
+      'osaka': 'Kansai',
+      'เกียวโต': 'Kansai',
+      'kyoto': 'Kansai',
+      'นารา': 'Kansai',
+      'ชูโกกุ': 'Chugoku',
+      'chugoku': 'Chugoku',
+      'ฮิโรชิมา': 'Chugoku',
+      'hiroshima': 'Chugoku',
+      'ชิโกกุ': 'Shikoku',
+      'shikoku': 'Shikoku',
+      'คิวชู': 'Kyushu',
+      'kyushu': 'Kyushu',
+      'ฟุกุโอกะ': 'Kyushu',
+      'โอกินาวา': 'Okinawa',
+      'โอกินาว่า': 'Okinawa',
+      'okinawa': 'Okinawa',
+    };
+
+    for (const [key, reg] of Object.entries(regionMap)) {
+      if (query.includes(key)) {
+        const matched = destinations.filter((d) => d.region === reg);
+        return {
+          text: `📍 **สถานที่ท่องเที่ยวภูมิภาค ${reg} ที่มีในเว็บไซต์ (${matched.length} แห่ง):**\nข้อมูลสถานที่ที่ลงทะเบียนไว้ในระบบ:`,
+          matched: matched,
+          suggestions: ['🌸 ที่เที่ยวฤดูใบไม้ผลิ', '💰 สถานที่เข้าฟรี', '💡 วิธีจัดแผนทริป'],
+        };
       }
     }
 
-    return { text, matched, suggestions };
+    // 6. Questions by Category (temple, nature, city, food, onsen, history, themepark)
+    if (query.includes('วัด') || query.includes('ศาลเจ้า') || query.includes('temple') || query.includes('shrine')) {
+      const matched = destinations.filter((d) => d.category === 'temple');
+      return {
+        text: `⛩️ **วัดและศาลเจ้าที่มีในระบบเว็บไซต์ (${matched.length} แห่ง):**\nสถานที่หมวดหมู่วัด/ศาลเจ้าที่บันทึกไว้ในฐานข้อมูลเว็บเรา:`,
+        matched: matched,
+        suggestions: ['💰 สถานที่เข้าชมฟรี', '🌸 ที่เที่ยวฤดูใบไม้ผลิ', '🗼 ที่เที่ยวคันโต'],
+      };
+    }
+
+    if (query.includes('ธรรมชาติ') || query.includes('วิว') || query.includes('ภูเขา') || query.includes('ทะเลสาบ') || query.includes('nature')) {
+      const matched = destinations.filter((d) => d.category === 'nature');
+      return {
+        text: `⛰️ **สถานที่ท่องเที่ยวเชิงธรรมชาติและวิวสวยในระบบ (${matched.length} แห่ง):**`,
+        matched: matched,
+        suggestions: ['🍁 จุดชมใบไม้เปลี่ยนสี', '❄️ ที่เที่ยวหน้าหนาว', '🍵 ที่เที่ยวคันไซ'],
+      };
+    }
+
+    if (query.includes('อาหาร') || query.includes('กิน') || query.includes('ตลาด') || query.includes('food') || query.includes('ซูชิ') || query.includes('ราเมน')) {
+      const matched = destinations.filter((d) => d.category === 'food' || d.descriptionTh.includes('อาหาร') || d.tipsTh?.includes('กิน'));
+      return {
+        text: `🍣 **แหล่งของกินและอาหารที่มีในระบบเว็บไซต์ (${matched.length} แห่ง):**`,
+        matched: matched,
+        suggestions: ['🗼 ที่เที่ยวโตเกียว', '⛩️ ที่เที่ยวคันไซ', '💰 สถานที่เข้าฟรี'],
+      };
+    }
+
+    if (query.includes('ออนเซ็น') || query.includes('onsen') || query.includes('น้ำพุร้อน')) {
+      const matched = destinations.filter((d) => d.category === 'onsen' || d.descriptionTh.includes('ออนเซ็น'));
+      return {
+        text: `♨️ **สถานที่หมวดออนเซ็นและการผ่อนคลายในระบบ (${matched.length} แห่ง):**`,
+        matched: matched,
+        suggestions: ['❄️ ที่เที่ยวหน้าหนาว', '⛰️ สถานที่ธรรมชาติ', '💡 วิธีจัดทริป'],
+      };
+    }
+
+    if (query.includes('ปราสาท') || query.includes('ประวัติศาสตร์') || query.includes('castle') || query.includes('history')) {
+      const matched = destinations.filter((d) => d.category === 'history');
+      return {
+        text: `🏯 **ปราสาทและแหล่งประวัติศาสตร์ที่มีในระบบ (${matched.length} แห่ง):**`,
+        matched: matched,
+        suggestions: ['⛩️ วัดและศาลเจ้า', '💰 สถานที่เข้าฟรี', '🌸 ที่เที่ยวใบไม้ผลิ'],
+      };
+    }
+
+    if (query.includes('ธีมปาร์ค') || query.includes('สวนสนุก') || query.includes('อนิเมะ') || query.includes('themepark')) {
+      const matched = destinations.filter((d) => d.category === 'themepark');
+      return {
+        text: `🎡 **ธีมปาร์คและอนิเมะในระบบ (${matched.length} แห่ง):**`,
+        matched: matched,
+        suggestions: ['🗼 ที่เที่ยวโตเกียว/คันโต', '🍵 ที่เที่ยวโอซาก้า/คันไซ', '💡 วิธีจัดทริป'],
+      };
+    }
+
+    // 7. Direct keyword search inside destinations catalog (names, description, station, tips, prefecture)
+    const exactMatches = destinations.filter((d) => 
+      d.nameTh.toLowerCase().includes(query) ||
+      d.nameEn.toLowerCase().includes(query) ||
+      d.nameJa.includes(rawQuery) ||
+      d.descriptionTh.toLowerCase().includes(query) ||
+      d.prefecture.toLowerCase().includes(query) ||
+      d.nearestStation.toLowerCase().includes(query) ||
+      (d.tipsTh && d.tipsTh.toLowerCase().includes(query))
+    );
+
+    if (exactMatches.length > 0) {
+      const first = exactMatches[0];
+      let detailedText = `🔎 **พบข้อมูลในเว็บไซต์ตรงกับ "${rawQuery}" (${exactMatches.length} แห่ง):**\n\n`;
+      if (exactMatches.length === 1) {
+        detailedText += `📌 **${first.nameTh} (${first.nameEn})**\n`;
+        detailedText += `• **ภูมิภาค:** ${first.region} (${first.prefecture})\n`;
+        detailedText += `• **สถานีใกล้เคียง:** ${first.nearestStation}\n`;
+        detailedText += `• **ค่าเข้าชม:** ${first.admissionFeeYen === 0 ? 'เข้าฟรี (0 เยน)' : `${first.admissionFeeYen.toLocaleString()} เยน`}\n`;
+        detailedText += `• **เวลาทำการ:** ${first.operatingHours.openTime} - ${first.operatingHours.closeTime} ${first.operatingHours.closedNote ? `(${first.operatingHours.closedNote})` : ''}\n`;
+        if (first.tipsTh) {
+          detailedText += `• **เกร็ดแนะนำ:** ${first.tipsTh}\n`;
+        }
+      }
+      return {
+        text: detailedText,
+        matched: exactMatches.slice(0, 4),
+        suggestions: ['📍 ดูรายละเอียดในเว็บ', '📅 เพิ่มเข้าแผนทริป', '💰 แนะนำที่เข้าฟรี'],
+      };
+    }
+
+    // 8. If nothing matches the website database
+    return {
+      text: `⚠️ **ไม่พบข้อมูลที่ตรงกับ "${rawQuery}" ในฐานข้อมูลเว็บไซต์ Japan Tabi ครับ**\n\nระบบของเราบันทึกข้อมูลสถานที่ท่องเที่ยวไว้ทั้งหมด **${destinations.length} แห่ง** ในญี่ปุ่น คุณสามารถ:\n1. ตรวจสอบชื่อสถานที่ หรือค้นหาตามภูมิภาค เช่น โตเกียว, โอซาก้า, เกียวโต, ฮอกไกโด, ฟูจิ\n2. ค้นหาตามหมวดหมู่ เช่น วัด, ศาลเจ้า, ของกิน, ธรรมชาติ, ออนเซ็น, ปราสาท\n3. ค้นหาสถานที่เข้าฟรี หรือค้นหาตามฤดูกาล (ซากุระ, ใบไม้แดง, หิมะ)\n4. สอบถามวิธีการใช้งานเว็บไซต์`,
+      matched: [],
+      suggestions: [
+        '⛩️ วัดและศาลเจ้าในเว็บ',
+        '🌸 ที่เที่ยวซากุระในเว็บ',
+        '💰 สถานที่เข้าชมฟรีในเว็บ',
+        '💡 วิธีใช้งานระบบจัดทริป',
+      ],
+      isOutOfScope: true,
+    };
   };
 
   const handleSendMessage = (textToSend?: string) => {
@@ -190,7 +351,7 @@ export function AIChatbot({
 
     // Simulate smart thinking delay
     setTimeout(() => {
-      const response = generateAIResponse(query);
+      const response = generateStrictWebResponse(query);
       const aiMsg: Message = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
@@ -198,11 +359,12 @@ export function AIChatbot({
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         matchedDestinations: response.matched,
         suggestions: response.suggestions,
+        isOutOfScope: response.isOutOfScope,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
       setIsTyping(false);
-    }, 600);
+    }, 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -217,13 +379,13 @@ export function AIChatbot({
       {
         id: 'welcome-msg',
         sender: 'ai',
-        text: 'เริ่มต้นบทสนทนาใหม่แล้วครับ! มีอะไรให้ **Japan Tabi AI** ช่วยวางแผนการเดินทางในญี่ปุ่นวันนี้บ้างครับ? 🌸🎌',
+        text: `เริ่มต้นบทสนทนาใหม่แล้วครับ! 🎌✨\nผมพร้อมให้ข้อมูลเฉพาะสถานที่ท่องเที่ยวทั้ง **${destinations.length} แห่ง** และฟังก์ชันการใช้งานภายในเว็บไซต์ Japan Tabi ครับ`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         suggestions: [
-          '🌸 แนะนำที่เที่ยวฤดูใบไม้ผลิ',
-          '⛩️ ศาลเจ้าหรือวัดสวยๆ',
-          '🍜 ย่านของกินยอดฮิต',
-          '🗻 แนะนำที่เที่ยววิวฟูจิ',
+          '🌸 ที่เที่ยวใบไม้ผลิในเว็บ',
+          '⛩️ วัดและศาลเจ้าที่มีในเว็บ',
+          '💰 สถานที่เข้าชมฟรีในระบบ',
+          '💡 วิธีใช้งานระบบจัดทริป',
         ],
       },
     ]);
@@ -247,8 +409,13 @@ export function AIChatbot({
               </span>
             </div>
             <div className="text-left">
-              <span className="block text-xs font-bold leading-tight tracking-wide">Japan Tabi AI</span>
-              <span className="block text-[10px] text-rose-100 font-medium">ถามผู้ช่วยเที่ยวญี่ปุ่น 🎌</span>
+              <div className="flex items-center gap-1.5">
+                <span className="block text-xs font-bold leading-tight tracking-wide">Japan Tabi AI</span>
+                <span className="inline-flex items-center rounded-sm bg-rose-700/60 px-1 text-[9px] font-semibold text-rose-100">
+                  Web Only
+                </span>
+              </div>
+              <span className="block text-[10px] text-rose-100 font-medium">ถามข้อมูลเฉพาะในเว็บไซต์ 🎌</span>
             </div>
           </button>
         )}
@@ -256,9 +423,9 @@ export function AIChatbot({
 
       {/* Chat Window Panel */}
       {isOpen && (
-        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex h-[580px] w-[95vw] max-w-[420px] flex-col rounded-3xl border border-rose-100 bg-white/95 shadow-2xl backdrop-blur-xl transition-all duration-300 overflow-hidden">
+        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex h-[600px] w-[95vw] max-w-[430px] flex-col rounded-3xl border border-rose-100 bg-white/95 shadow-2xl backdrop-blur-xl transition-all duration-300 overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-rose-100/80 bg-gradient-to-r from-rose-500 via-rose-600 to-amber-500 px-4 py-3.5 text-white">
+          <div className="flex items-center justify-between border-b border-rose-100/80 bg-gradient-to-r from-rose-500 via-rose-600 to-amber-500 px-4 py-3 text-white">
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
                 <Bot className="h-5 w-5 text-white" />
@@ -266,11 +433,11 @@ export function AIChatbot({
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-sm font-bold text-white">Japan Tabi AI</h3>
-                  <span className="inline-flex items-center rounded-full bg-emerald-400/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-200">
-                    Online
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                    <ShieldCheck className="h-2.5 w-2.5" /> เว็บนี้เท่านั้น
                   </span>
                 </div>
-                <p className="text-[11px] text-rose-100">ผู้ช่วยอัจฉริยะวางแผนเที่ยวญี่ปุ่น</p>
+                <p className="text-[10.5px] text-rose-100">ตอบเฉพาะข้อมูลสถานที่และระบบในเว็บ</p>
               </div>
             </div>
 
@@ -292,6 +459,12 @@ export function AIChatbot({
             </div>
           </div>
 
+          {/* Info Banner inside chat */}
+          <div className="flex items-center gap-1.5 bg-rose-50/90 px-3.5 py-1.5 text-[10.5px] text-rose-700 border-b border-rose-100/60">
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            <span>AI ตอบเฉพาะข้อมูลสถานที่ ({destinations.length} แห่ง) และฟีเจอร์ในเว็บนี้</span>
+          </div>
+
           {/* Messages Body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
             {messages.map((msg) => (
@@ -310,6 +483,8 @@ export function AIChatbot({
                     className={`rounded-2xl px-3.5 py-2.5 leading-relaxed shadow-xs ${
                       msg.sender === 'user'
                         ? 'rounded-br-xs bg-rose-500 text-white font-medium'
+                        : msg.isOutOfScope
+                        ? 'rounded-bl-xs bg-amber-50 text-slate-800 border border-amber-200'
                         : 'rounded-bl-xs bg-slate-50 text-slate-750 border border-slate-100'
                     }`}
                   >
@@ -322,7 +497,7 @@ export function AIChatbot({
                       <div className="mt-3 space-y-2 pt-2 border-t border-slate-200/60">
                         <p className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
                           <MapPin className="h-3 w-3 text-rose-500" />
-                          สถานที่แนะนำที่เกี่ยวข้อง:
+                          สถานที่ในเว็บที่ตรงกับคำถาม:
                         </p>
                         <div className="space-y-1.5">
                           {msg.matchedDestinations.map((dest) => {
@@ -346,7 +521,7 @@ export function AIChatbot({
                                       {dest.nameTh}
                                     </p>
                                     <p className="text-[10px] text-slate-400 truncate">
-                                      {dest.region} • {dest.prefecture}
+                                      {dest.region} • {dest.admissionFeeYen === 0 ? 'ฟรี' : `¥${dest.admissionFeeYen.toLocaleString()}`}
                                     </p>
                                   </div>
                                 </div>
@@ -434,7 +609,7 @@ export function AIChatbot({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick suggestions bottom drawer if open */}
+          {/* Quick suggestions bottom drawer */}
           <div className="border-t border-slate-100 bg-slate-50/80 px-3 py-2">
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1">
               {QUICK_SUGGESTIONS.slice(0, 3).map((chip, idx) => (
@@ -455,7 +630,7 @@ export function AIChatbot({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="พิมพ์ถามสถานที่, ฤดู, หรือคำถามเที่ยวญี่ปุ่น..."
+                placeholder="ถามข้อมูลสถานที่หรือระบบในเว็บนี้เท่านั้น..."
                 className="flex-1 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
               />
               <button
