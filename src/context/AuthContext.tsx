@@ -5,6 +5,7 @@ import type {
   UserRole, UserStatus, SystemAnnouncement, ActivityLogEntry
 } from '../types/auth';
 import { getUserRoleByEmail } from '../config/roles';
+import { firestore } from '../services/firebase';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -101,6 +102,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch { return []; }
   });
 
+  // ─── Real-time Firestore Sync (Announcements, Accounts, Activity Log) ────────
+  useEffect(() => {
+    if (!firestore) return;
+    let isMounted = true;
+
+    const syncCloudData = async () => {
+      try {
+        const [cloudAnnouncements, cloudAccounts, cloudLogs] = await Promise.all([
+          firestore.getCollection<SystemAnnouncement>('announcements'),
+          firestore.getCollection<RegisteredAccount>('accounts'),
+          firestore.getCollection<ActivityLogEntry>('activity_log'),
+        ]);
+
+        if (!isMounted) return;
+
+        if (cloudAnnouncements && cloudAnnouncements.length > 0) {
+          // Sort by createdAt descending
+          setAnnouncements(cloudAnnouncements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        }
+        if (cloudAccounts && cloudAccounts.length > 0) {
+          setAccounts(cloudAccounts.map(a => ({ ...a, role: getUserRoleByEmail(a.email) })));
+        }
+        if (cloudLogs && cloudLogs.length > 0) {
+          setActivityLog(cloudLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        }
+      } catch (e) {
+        console.warn('Sync Cloud Data error:', e);
+      }
+    };
+
+    syncCloudData();
+    const interval = setInterval(syncCloudData, 8000); // Auto-sync across all machines every 8 seconds
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   // Persist to localStorage
   useEffect(() => { try { if (user) localStorage.setItem('japan_tabi_user', JSON.stringify(user)); else localStorage.removeItem('japan_tabi_user'); } catch { } }, [user]);
   useEffect(() => { try { localStorage.setItem('japan_tabi_accounts', JSON.stringify(accounts)); } catch { } }, [accounts]);
@@ -149,6 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const assignedRole = getUserRoleByEmail(trimEmail);
     const newAcc: RegisteredAccount = { id: `user-${Date.now()}`, name: trimName, email: trimEmail, passwordHash: password, role: assignedRole, status: 'active', createdAt: new Date().toISOString() };
     setAccounts(prev => [...prev, newAcc]);
+    if (firestore) firestore.setDocument('accounts', newAcc.id, newAcc);
     const profile = buildProfile(newAcc.id, newAcc.email, newAcc.name, `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(trimName)}&backgroundColor=e11d48`);
     setUser(profile);
     setActivityLog(prev => logActivity(prev, profile, 'สมัครสมาชิกใหม่', 'user', trimEmail));
@@ -168,14 +209,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ─── Super Admin: User Management ─────────────────────────────
   const updateUserRole = (userId: string, newRole: UserRole) => {
-    setAccounts(prev => prev.map(a => a.id === userId ? { ...a, role: newRole } : a));
+    setAccounts(prev => prev.map(a => {
+      if (a.id === userId) {
+        const updated = { ...a, role: newRole };
+        if (firestore) firestore.setDocument('accounts', userId, updated);
+        return updated;
+      }
+      return a;
+    }));
     if (user?.id === userId) setUser(prev => prev ? { ...prev, role: newRole } : null);
     const target = accounts.find(a => a.id === userId);
     if (user && target) setActivityLog(prev => logActivity(prev, user, `เปลี่ยนสิทธิ์เป็น ${newRole}`, 'user', target.email));
   };
 
   const updateUserStatus = (userId: string, status: UserStatus) => {
-    setAccounts(prev => prev.map(a => a.id === userId ? { ...a, status } : a));
+    setAccounts(prev => prev.map(a => {
+      if (a.id === userId) {
+        const updated = { ...a, status };
+        if (firestore) firestore.setDocument('accounts', userId, updated);
+        return updated;
+      }
+      return a;
+    }));
     const target = accounts.find(a => a.id === userId);
     if (user && target) setActivityLog(prev => logActivity(prev, user, status === 'suspended' ? 'ระงับบัญชี' : 'ปลดระงับบัญชี', 'user', target.email));
   };
@@ -183,6 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteUser = (userId: string) => {
     const target = accounts.find(a => a.id === userId);
     setAccounts(prev => prev.filter(a => a.id !== userId));
+    if (firestore) firestore.deleteDocument('accounts', userId);
     if (user && target) setActivityLog(prev => logActivity(prev, user, 'ลบบัญชีผู้ใช้', 'user', target.email));
   };
 
@@ -199,22 +255,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pinned,
     };
     setAnnouncements(prev => [ann, ...prev]);
+    if (firestore) firestore.setDocument('announcements', ann.id, ann);
     setActivityLog(prev => logActivity(prev, user, 'สร้างประกาศ', 'announcement', title));
   };
 
   const deleteAnnouncement = (id: string) => {
     const target = announcements.find(a => a.id === id);
     setAnnouncements(prev => prev.filter(a => a.id !== id));
+    if (firestore) firestore.deleteDocument('announcements', id);
     if (user && target) setActivityLog(prev => logActivity(prev, user, 'ลบประกาศ', 'announcement', target.title));
   };
 
   const togglePinAnnouncement = (id: string) => {
-    setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, pinned: !a.pinned } : a));
+    setAnnouncements(prev => prev.map(a => {
+      if (a.id === id) {
+        const updated = { ...a, pinned: !a.pinned };
+        if (firestore) firestore.setDocument('announcements', id, updated);
+        return updated;
+      }
+      return a;
+    }));
   };
 
   const logSystemActivity = (action: string, targetType: ActivityLogEntry['targetType'], targetLabel: string) => {
     if (!user) return;
-    setActivityLog(prev => logActivity(prev, user, action, targetType, targetLabel));
+    const entry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      actorEmail: user.email,
+      actorName: user.name,
+      action,
+      targetType,
+      targetLabel,
+      createdAt: new Date().toISOString(),
+    };
+    setActivityLog(prev => [entry, ...prev].slice(0, 100));
+    if (firestore) firestore.setDocument('activity_log', entry.id, entry);
   };
 
   return (
