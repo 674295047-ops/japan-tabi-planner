@@ -6,7 +6,7 @@ import { DestinationProvider } from './context/DestinationContext';
 import './index.css';
 import App from './App.tsx';
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id.apps.googleusercontent.com';
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '293184247193-i396je507fng7btdqq2vkvgupjg98ppv.apps.googleusercontent.com';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
