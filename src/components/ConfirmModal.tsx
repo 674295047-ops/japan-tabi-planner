@@ -4,7 +4,7 @@ import { AlertTriangle, Trash2, X } from 'lucide-react';
 interface ConfirmModalProps {
   isOpen: boolean;
   title?: string;
-  message: string;
+  message?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   confirmVariant?: 'danger' | 'warning' | 'primary';
@@ -70,8 +70,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             )}
           </div>
 
-          <h3 className="text-xl font-bold text-slate-900 mb-2">{title}</h3>
-          <p className="text-sm text-slate-600 leading-relaxed mb-6 px-2">{message}</p>
+          <h3 className={`text-xl font-bold text-slate-900 ${message ? 'mb-2' : 'mb-6'}`}>{title}</h3>
+          {message && (
+            <p className="text-sm text-slate-600 leading-relaxed mb-6 px-2">{message}</p>
+          )}
 
           <div className="flex items-center gap-3 w-full">
             <button

@@ -98,8 +98,11 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
                     {dest.prefecture}
                   </span>
                   <button
-                    onClick={() => setDestToRemove(dest)}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-rose-500 hover:bg-rose-50 flex items-center justify-center transition-colors shadow-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDestToRemove(dest);
+                    }}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-rose-500 hover:bg-rose-50 flex items-center justify-center transition-colors shadow-xs z-10"
                     title="ลบออกจากรายการโปรด"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -144,7 +147,6 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
       <ConfirmModal
         isOpen={destToRemove !== null}
         title="ลบออกจากรายการโปรด?"
-        message={`คุณต้องการลบ "${destToRemove?.nameTh || 'สถานที่นี้'}" ออกจากรายการที่บันทึกไว้ใช่หรือไม่?`}
         confirmLabel="ยืนยันการลบ"
         cancelLabel="ยกเลิก"
         onConfirm={() => {
