@@ -104,15 +104,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ─── Real-time Firestore Sync (Announcements, Accounts, Activity Log) ────────
   useEffect(() => {
-    if (!firestore) return;
+    const db = firestore; // capture reference so TypeScript knows it's non-null inside async
+    if (!db) return;
     let isMounted = true;
 
     const syncCloudData = async () => {
       try {
         const [cloudAnnouncements, cloudAccounts, cloudLogs] = await Promise.all([
-          firestore.getCollection<SystemAnnouncement>('announcements'),
-          firestore.getCollection<RegisteredAccount>('accounts'),
-          firestore.getCollection<ActivityLogEntry>('activity_log'),
+          db.getCollection<SystemAnnouncement>('announcements'),
+          db.getCollection<RegisteredAccount>('accounts'),
+          db.getCollection<ActivityLogEntry>('activity_log'),
         ]);
 
         if (!isMounted) return;

@@ -50,12 +50,13 @@ export const DestinationProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Initial sync from Firestore if configured, plus periodic polling (every 10s)
   useEffect(() => {
-    if (!firestore) return;
+    const db = firestore; // capture reference so TypeScript knows it's non-null inside async
+    if (!db) return;
     let isMounted = true;
 
     const syncFromFirestore = async () => {
       try {
-        const remoteDest = await firestore.getCollection<Destination>('destinations');
+        const remoteDest = await db.getCollection<Destination>('destinations');
         if (isMounted && remoteDest && remoteDest.length > 0) {
           setDestinations(remoteDest);
         }
