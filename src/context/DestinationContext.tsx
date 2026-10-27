@@ -58,7 +58,16 @@ export const DestinationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       try {
         const remoteDest = await db.getCollection<Destination>('destinations');
         if (isMounted && remoteDest && remoteDest.length > 0) {
-          setDestinations(remoteDest);
+          // Merge default destinations with remote destinations so built-in destinations are never lost
+          setDestinations((current) => {
+            const remoteMap = new Map(remoteDest.map((d) => [d.id, d]));
+            // Start with all default destinations, override if modified remotely
+            const mergedDefaults = JAPAN_DESTINATIONS.map((d) => remoteMap.get(d.id) || d);
+            // Append any new custom destinations added by admins that aren't in default list
+            const defaultIdSet = new Set(JAPAN_DESTINATIONS.map((d) => d.id));
+            const customRemote = remoteDest.filter((d) => !defaultIdSet.has(d.id));
+            return [...mergedDefaults, ...customRemote];
+          });
         }
       } catch (e) {
         console.warn('Sync destinations error:', e);
